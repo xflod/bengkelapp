@@ -11,10 +11,11 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge";
-import { CalendarPlus, PlayCircle, CheckCircle2, Edit3, Copy, Trash2, AlertCircle, Hourglass, XCircle } from "lucide-react";
+import { CalendarPlus, PlayCircle, CheckCircle2, Edit3, Copy, Trash2, AlertCircle, Hourglass, XCircle, Percent } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { format } from 'date-fns';
 import { id as localeID } from 'date-fns/locale';
+import { Slider } from "@/components/ui/slider"; // Added Slider
 
 interface ServiceJob {
   id: string;
@@ -28,7 +29,8 @@ interface ServiceJob {
   status: 'Antrian' | 'Dikerjakan' | 'Menunggu Konfirmasi' | 'Selesai' | 'Dibatalkan';
   accessCode: string;
   createdAt: string; 
-  updatedAt: string; 
+  updatedAt: string;
+  estimatedProgress?: number; // New field
 }
 
 const generateId = () => `SJ-${Date.now()}-${Math.random().toString(36).substring(2, 7)}`;
@@ -49,6 +51,7 @@ export default function SchedulePage() {
   const [workDoneNotes, setWorkDoneNotes] = useState('');
   const [currentStatus, setCurrentStatus] = useState<ServiceJob['status']>('Antrian');
   const [currentAccessCode, setCurrentAccessCode] = useState('');
+  const [estimatedProgress, setEstimatedProgress] = useState<number[]>([0]); // For Slider component
 
 
   useEffect(() => {
@@ -84,6 +87,7 @@ export default function SchedulePage() {
     setCurrentStatus('Antrian');
     setEditingJobId(null);
     setCurrentAccessCode(generateAccessCode());
+    setEstimatedProgress([0]);
   }, []);
 
   const handleOpenFormDialog = useCallback((job?: ServiceJob) => {
@@ -97,6 +101,7 @@ export default function SchedulePage() {
       setWorkDoneNotes(job.workDoneNotes || '');
       setCurrentStatus(job.status);
       setCurrentAccessCode(job.accessCode);
+      setEstimatedProgress([job.estimatedProgress || 0]);
     } else {
       resetFormFields();
     }
@@ -110,12 +115,13 @@ export default function SchedulePage() {
     }
 
     const now = new Date().toISOString();
+    const progressValue = estimatedProgress[0];
     
     if (editingJobId) {
       setServiceJobs(prevJobs =>
         prevJobs.map(j =>
           j.id === editingJobId
-            ? { ...j, customerName, customerPhone, vehiclePlate, vehicleType, serviceRequest, workDoneNotes, status: currentStatus, updatedAt: now }
+            ? { ...j, customerName, customerPhone, vehiclePlate, vehicleType, serviceRequest, workDoneNotes, status: currentStatus, estimatedProgress: progressValue, updatedAt: now }
             : j
         )
       );
@@ -133,6 +139,7 @@ export default function SchedulePage() {
         accessCode: currentAccessCode,
         createdAt: now,
         updatedAt: now,
+        estimatedProgress: progressValue,
       };
       setServiceJobs(prevJobs => [newJob, ...prevJobs]);
       toast({ title: "Jadwal Dibuat", description: `Servis baru untuk ${vehiclePlate} ditambahkan.` });
@@ -151,8 +158,10 @@ export default function SchedulePage() {
 
           if (newStatus === 'Dikerjakan' && !job.actualStartTime) {
             updatedJob.actualStartTime = now;
+            updatedJob.estimatedProgress = Math.max(updatedJob.estimatedProgress || 0, 5); // Auto set to 5% if starting
             toastMessage = `Servis untuk ${job.vehiclePlate} mulai dikerjakan.`;
           } else if (newStatus === 'Selesai') {
+            updatedJob.estimatedProgress = 100; // Auto set to 100% if completed
             toastMessage = `Servis untuk ${job.vehiclePlate} telah selesai.`;
           }
           toast({ title: "Status Diperbarui", description: toastMessage });
@@ -237,6 +246,15 @@ export default function SchedulePage() {
                   </div>
                   {getStatusBadge(job.status)}
                 </div>
+                {job.estimatedProgress !== undefined && job.status !== 'Selesai' && job.status !== 'Dibatalkan' && (
+                  <div className="mt-2">
+                     <div className="flex justify-between items-center text-xs text-muted-foreground mb-0.5">
+                        <span>Progres:</span>
+                        <span className="font-semibold text-primary">{job.estimatedProgress}%</span>
+                    </div>
+                    <Progress value={job.estimatedProgress} className="h-1.5" />
+                  </div>
+                )}
               </CardHeader>
               <CardContent className="space-y-2 text-sm flex-grow pb-4">
                 <div>
@@ -264,10 +282,11 @@ export default function SchedulePage() {
                     </Button>
                   </div>
                    <p className="text-xs text-muted-foreground/70 mt-0.5">
-                      (Untuk pelanggan cek status - Fitur akan datang)
+                      (Untuk pelanggan cek status di halaman cek servis)
                    </p>
                 </div>
                  <p className="text-xs text-muted-foreground/70 pt-1">Dibuat: {format(new Date(job.createdAt), "dd/MM/yy HH:mm")}</p>
+                 <p className="text-xs text-muted-foreground/70">Diupdate: {format(new Date(job.updatedAt), "dd/MM/yy HH:mm")}</p>
               </CardContent>
               <CardFooter className="flex flex-col gap-2 border-t pt-3 pb-3">
                 <Button variant="outline" size="sm" className="w-full" onClick={() => handleOpenFormDialog(job)}>
@@ -338,6 +357,28 @@ export default function SchedulePage() {
               <Textarea id="serviceRequestForm" value={serviceRequest} onChange={(e) => setServiceRequest(e.target.value)} className="col-span-4 sm:col-span-3" placeholder="Jelaskan keluhan pelanggan atau permintaan servis." rows={3}/>
             </div>
 
+            <div className="grid grid-cols-4 items-start gap-x-4 gap-y-2 mt-2">
+                <Label htmlFor="estimatedProgressForm" className="text-right col-span-4 sm:col-span-1 pt-2">Estimasi Progres (%)</Label>
+                <div className="col-span-4 sm:col-span-3 space-y-2">
+                    <Slider
+                        id="estimatedProgressForm"
+                        min={0}
+                        max={100}
+                        step={5}
+                        value={estimatedProgress}
+                        onValueChange={setEstimatedProgress}
+                        className="w-full"
+                    />
+                    <Input 
+                        type="number" 
+                        value={estimatedProgress[0]} 
+                        onChange={(e) => setEstimatedProgress([parseInt(e.target.value, 10) || 0])}
+                        min="0" max="100"
+                        className="w-20 text-center"
+                    />
+                </div>
+            </div>
+
             {editingJobId && (
               <>
                 <div className="grid grid-cols-4 items-start gap-x-4 gap-y-2 mt-2">
@@ -388,6 +429,3 @@ export default function SchedulePage() {
     </div>
   );
 }
-
-
-    
