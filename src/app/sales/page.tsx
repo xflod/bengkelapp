@@ -21,13 +21,13 @@ import { id as localeID } from 'date-fns/locale';
 
 // Mock Product Data - In a real app, this would come from a database/API
 const MOCK_PRODUCTS: Product[] = [
-  { id: 'SKU001', name: 'Oli Mesin SuperX', category: 'part', costPrice: 50000, sellingPrices: [{ tier: 'default', price: 75000 }], stockQuantity: 50, lowStockThreshold: 10, description: "Oli berkualitas tinggi untuk performa maksimal." },
+  { id: 'SKU001', name: 'Oli Mesin SuperX Extra Long Name For Testing Wrap Behavior In Tables', category: 'part', costPrice: 50000, sellingPrices: [{ tier: 'default', price: 75000 }], stockQuantity: 50, lowStockThreshold: 10, description: "Oli berkualitas tinggi untuk performa maksimal." },
   { id: 'SKU002', name: 'Kampas Rem Depan YMH', category: 'part', costPrice: 30000, sellingPrices: [{ tier: 'default', price: 45000 }], stockQuantity: 30, lowStockThreshold: 5, description: "Kampas rem original Yamaha." },
   { id: 'SKU003', name: 'Busi Champion Z9', category: 'part', costPrice: 10000, sellingPrices: [{ tier: 'default', price: 15000 }], stockQuantity: 100, lowStockThreshold: 20, description: "Busi standar untuk berbagai jenis motor." },
   { id: 'SKU004', name: 'Servis Rutin Ringan', category: 'service', costPrice: 0, sellingPrices: [{ tier: 'default', price: 100000 }], stockQuantity: 999, lowStockThreshold: 0, description: "Pemeriksaan dan penyetelan ringan." },
   { id: 'BARCODE123', name: 'Item Scan Barcode Test', category: 'part', costPrice: 20000, sellingPrices: [{ tier: 'default', price: 35000 }], stockQuantity: 20, lowStockThreshold: 5, description: "Produk untuk tes barcode scanner." },
-  { id: 'SKU005', name: 'Air Filter Racing', category: 'part', costPrice: 80000, sellingPrices: [{ tier: 'default', price: 120000 }], stockQuantity: 15, lowStockThreshold: 3, description: "Filter udara untuk peningkatan performa." },
-  { id: 'SKU006', name: 'Ban Dalam Swallow 17"', category: 'part', costPrice: 15000, sellingPrices: [{ tier: 'default', price: 25000 }], stockQuantity: 60, lowStockThreshold: 10, description: "Ban dalam ukuran 17 inch." },
+  { id: 'SKU005', name: 'Air Filter Racing Performance High Flow', category: 'part', costPrice: 80000, sellingPrices: [{ tier: 'default', price: 120000 }], stockQuantity: 15, lowStockThreshold: 3, description: "Filter udara untuk peningkatan performa." },
+  { id: 'SKU006', name: 'Ban Dalam Swallow 17" Premium Quality', category: 'part', costPrice: 15000, sellingPrices: [{ tier: 'default', price: 25000 }], stockQuantity: 60, lowStockThreshold: 10, description: "Ban dalam ukuran 17 inch." },
 ];
 
 interface ReceiptDetails {
@@ -315,7 +315,7 @@ export default function SalesPage() {
         actions={
           <Button 
             onClick={openPaymentDialog} 
-            className="bg-primary hover:bg-primary/90 text-primary-foreground whitespace-normal sm:whitespace-nowrap text-center sm:text-left px-3 sm:px-4 py-2 text-sm sm:text-base" 
+            className="bg-primary hover:bg-primary/90 text-primary-foreground whitespace-normal text-center md:text-left md:whitespace-nowrap px-3 sm:px-4 py-2 text-sm sm:text-base" 
             disabled={cart.length === 0}
           >
             <CreditCard className="mr-2 h-4 w-4" />
@@ -391,7 +391,9 @@ export default function SalesPage() {
                     <TableBody>
                       {filteredProducts.map((product) => (
                         <TableRow key={product.id}>
-                          <TableCell className="font-medium">{product.name} <br/> <span className="text-xs text-muted-foreground">({product.id})</span></TableCell>
+                          <TableCell className="font-medium break-words max-w-[150px] sm:max-w-xs">
+                            {product.name} <br/> <span className="text-xs text-muted-foreground">({product.id})</span>
+                          </TableCell>
                           <TableCell className="text-right">Rp {product.sellingPrices[0]?.price.toLocaleString() || 'N/A'}</TableCell>
                           <TableCell className="text-center">{product.category === 'service' ? '-' : product.stockQuantity}</TableCell>
                           <TableCell className="text-right">
@@ -437,7 +439,7 @@ export default function SalesPage() {
                     <TableBody>
                       {cart.map(item => (
                         <TableRow key={item.productId}>
-                          <TableCell className="font-medium text-sm">{item.productName}</TableCell>
+                          <TableCell className="font-medium text-sm break-words max-w-[100px] sm:max-w-xs">{item.productName}</TableCell>
                           <TableCell className="text-center">
                             <div className="flex items-center justify-center gap-1">
                               <Button variant="outline" size="icon" className="h-6 w-6" onClick={() => handleUpdateQuantity(item.productId, item.quantity - 1)}>
@@ -571,13 +573,13 @@ export default function SalesPage() {
             <p>Tgl: {receiptDetails?.date}</p>
             {receiptDetails?.customerName && <p>Plgn: {receiptDetails.customerName}</p>}
             <hr className="my-1 border-dashed border-gray-400"/>
-            <table className="w-full my-1">
+            <table className="w-full my-1 table-fixed">
               <thead>
                 <tr>
-                  <th className="text-left font-normal">Item</th>
-                  <th className="text-center font-normal">Qty</th>
-                  <th className="text-right font-normal">Harga</th>
-                  <th className="text-right font-normal">Total</th>
+                  <th className="text-left font-normal w-[40%]">Item</th>
+                  <th className="text-center font-normal w-[15%]">Qty</th>
+                  <th className="text-right font-normal w-[22.5%]">Harga</th>
+                  <th className="text-right font-normal w-[22.5%]">Total</th>
                 </tr>
               </thead>
               <tbody>
@@ -585,8 +587,8 @@ export default function SalesPage() {
                   <tr key={item.productId}>
                     <td className="py-0.5 break-words">{item.productName}</td>
                     <td className="text-center py-0.5">{item.quantity}</td>
-                    <td className="text-right py-0.5 whitespace-nowrap">{item.unitPrice.toLocaleString()}</td>
-                    <td className="text-right py-0.5 whitespace-nowrap">{item.totalPrice.toLocaleString()}</td>
+                    <td className="text-right py-0.5">{item.unitPrice.toLocaleString()}</td>
+                    <td className="text-right py-0.5">{item.totalPrice.toLocaleString()}</td>
                   </tr>
                 ))}
               </tbody>
@@ -626,3 +628,4 @@ export default function SalesPage() {
     </div>
   );
 }
+
