@@ -394,16 +394,17 @@ export default function SalesPage() {
                           <TableCell className="font-medium break-words max-w-[150px] sm:max-w-xs">
                             {product.name} <br/> <span className="text-xs text-muted-foreground">({product.id})</span>
                           </TableCell>
-                          <TableCell className="text-right">Rp {product.sellingPrices[0]?.price.toLocaleString() || 'N/A'}</TableCell>
+                          <TableCell className="text-right whitespace-nowrap">Rp {product.sellingPrices[0]?.price.toLocaleString() || 'N/A'}</TableCell>
                           <TableCell className="text-center">{product.category === 'service' ? '-' : product.stockQuantity}</TableCell>
                           <TableCell className="text-right">
                             <Button 
-                              size="sm" 
+                              size="icon" 
                               onClick={() => handleAddToCart(product)}
                               disabled={(product.category !== 'service' && product.stockQuantity <= 0) || product.sellingPrices.length === 0}
-                              className="bg-primary hover:bg-primary/90 text-primary-foreground"
+                              className="bg-primary hover:bg-primary/90 text-primary-foreground h-8 w-8"
+                              title="Tambah ke Keranjang"
                             >
-                              <ShoppingCart className="mr-2 h-4 w-4" /> Tambah
+                              <ShoppingCart className="h-4 w-4" />
                             </Button>
                           </TableCell>
                         </TableRow>
@@ -439,21 +440,21 @@ export default function SalesPage() {
                     <TableBody>
                       {cart.map(item => (
                         <TableRow key={item.productId}>
-                          <TableCell className="font-medium text-sm break-words max-w-[100px] sm:max-w-xs">{item.productName}</TableCell>
+                          <TableCell className="font-medium text-sm break-words max-w-[100px] sm:max-w-[80px] md:max-w-[100px] lg:max-w-xs">{item.productName}</TableCell>
                           <TableCell className="text-center">
                             <div className="flex items-center justify-center gap-1">
                               <Button variant="outline" size="icon" className="h-6 w-6" onClick={() => handleUpdateQuantity(item.productId, item.quantity - 1)}>
                                 <MinusCircle className="h-3 w-3" />
                               </Button>
-                              <span className="w-6 text-center">{item.quantity}</span>
+                              <span className="w-6 text-center text-sm">{item.quantity}</span>
                               <Button variant="outline" size="icon" className="h-6 w-6" onClick={() => handleUpdateQuantity(item.productId, item.quantity + 1)}>
                                 <PlusCircle className="h-3 w-3" />
                               </Button>
                             </div>
                           </TableCell>
-                          <TableCell className="text-right text-sm">Rp {item.totalPrice.toLocaleString()}</TableCell>
+                          <TableCell className="text-right text-sm whitespace-nowrap">Rp {item.totalPrice.toLocaleString()}</TableCell>
                           <TableCell className="text-right">
-                            <Button variant="ghost" size="icon" onClick={() => handleRemoveFromCart(item.productId)} className="text-destructive hover:text-destructive/80">
+                            <Button variant="ghost" size="icon" onClick={() => handleRemoveFromCart(item.productId)} className="text-destructive hover:text-destructive/80 h-7 w-7">
                               <Trash2 className="h-4 w-4" />
                             </Button>
                           </TableCell>
@@ -470,7 +471,7 @@ export default function SalesPage() {
               <CardFooter className="flex flex-col space-y-2 pt-4 border-t">
                 <div className="flex justify-between w-full font-semibold text-lg">
                   <span>Total Akhir:</span>
-                  <span>Rp {subtotal.toLocaleString()}</span>
+                  <span className="whitespace-nowrap">Rp {subtotal.toLocaleString()}</span>
                 </div>
               </CardFooter>
             )}
@@ -483,7 +484,7 @@ export default function SalesPage() {
           <DialogHeader>
             <DialogTitle>Proses Pembayaran</DialogTitle>
             <DialogDescription>
-              Total Belanja: <span className="font-semibold">Rp {subtotal.toLocaleString()}</span>
+              Total Belanja: <span className="font-semibold whitespace-nowrap">Rp {subtotal.toLocaleString()}</span>
             </DialogDescription>
           </DialogHeader>
           
@@ -510,9 +511,9 @@ export default function SalesPage() {
                 <Button variant="outline" onClick={() => handlePresetCash(100000)} className="flex-1 text-xs min-w-[80px]">Rp 100rb</Button>
               </div>
                <div className="space-y-1 text-right">
-                 <p className="text-sm">Total: Rp {subtotal.toLocaleString()}</p>
-                 <p className="text-sm">Dibayar: Rp {(parseFloat(cashReceived) || 0).toLocaleString()}</p>
-                <p className="text-lg font-semibold">
+                 <p className="text-sm whitespace-nowrap">Total: Rp {subtotal.toLocaleString()}</p>
+                 <p className="text-sm whitespace-nowrap">Dibayar: Rp {(parseFloat(cashReceived) || 0).toLocaleString()}</p>
+                <p className="text-lg font-semibold whitespace-nowrap">
                   Kembali: Rp {changeCalculated >= 0 ? changeCalculated.toLocaleString() : '0'}
                 </p>
                 {(parseFloat(cashReceived) || 0) < subtotal && cashReceived !== "" && (
@@ -529,7 +530,7 @@ export default function SalesPage() {
             </TabsContent>
             <TabsContent value="transfer" className="space-y-4 pt-4">
               <p className="text-sm text-muted-foreground">
-                Silakan lakukan transfer sejumlah <span className="font-semibold text-foreground">Rp {subtotal.toLocaleString()}</span> ke rekening berikut:
+                Silakan lakukan transfer sejumlah <span className="font-semibold text-foreground whitespace-nowrap">Rp {subtotal.toLocaleString()}</span> ke rekening berikut:
               </p>
               <div className="p-3 bg-muted rounded-md text-sm">
                 <p className="font-medium">Bank XYZ</p>
@@ -587,19 +588,19 @@ export default function SalesPage() {
                   <tr key={item.productId}>
                     <td className="py-0.5 break-words">{item.productName}</td>
                     <td className="text-center py-0.5">{item.quantity}</td>
-                    <td className="text-right py-0.5">{item.unitPrice.toLocaleString()}</td>
-                    <td className="text-right py-0.5">{item.totalPrice.toLocaleString()}</td>
+                    <td className="text-right py-0.5 break-words">{item.unitPrice.toLocaleString()}</td>
+                    <td className="text-right py-0.5 break-words">{item.totalPrice.toLocaleString()}</td>
                   </tr>
                 ))}
               </tbody>
             </table>
             <hr className="my-1 border-dashed border-gray-400"/>
             <div className="text-right">
-              <p>Subtotal: <span className="font-semibold">Rp {receiptDetails?.subtotal.toLocaleString()}</span></p>
+              <p className="whitespace-nowrap">Subtotal: <span className="font-semibold">Rp {receiptDetails?.subtotal.toLocaleString()}</span></p>
               {receiptDetails?.paymentMethod === 'Tunai' && (
                 <>
-                  <p>Tunai: Rp {receiptDetails?.cashReceived?.toLocaleString()}</p>
-                  <p>Kembali: Rp {receiptDetails?.changeCalculated?.toLocaleString()}</p>
+                  <p className="whitespace-nowrap">Tunai: Rp {receiptDetails?.cashReceived?.toLocaleString()}</p>
+                  <p className="whitespace-nowrap">Kembali: Rp {receiptDetails?.changeCalculated?.toLocaleString()}</p>
                 </>
               )}
                <p>Metode: {receiptDetails?.paymentMethod}</p>
