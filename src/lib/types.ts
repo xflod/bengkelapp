@@ -225,3 +225,17 @@ export interface SavingsTransaction {
   notes?: string;
   createdAt: string; // ISO string
 }
+
+// Expense Recording Types
+export type ExpenseCategory = 'Operasional Bengkel' | 'Gaji & Komisi' | 'Pembelian Alat & Aset' | 'Promosi & Marketing' | 'Administrasi & Pajak' | 'Biaya Tak Terduga' | 'Lainnya';
+
+export interface Expense {
+  id: string;
+  expenseDate: string; // ISO string
+  category: ExpenseCategory;
+  description: string;
+  amount: number;
+  notes?: string;
+  createdAt: string; // ISO string
+  updatedAt: string; // ISO string
+}
