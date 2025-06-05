@@ -1,5 +1,5 @@
 import type { NavItem } from '@/lib/types';
-import { LayoutDashboard, ShoppingCart, CalendarDays, Package, BarChartBig, Users, Truck } from 'lucide-react';
+import { LayoutDashboard, ShoppingCart, CalendarDays, Package, BarChartBig, Users, Truck, Briefcase } from 'lucide-react';
 
 export const NAV_ITEMS: NavItem[] = [
   {
@@ -11,6 +11,11 @@ export const NAV_ITEMS: NavItem[] = [
     title: 'Penjualan',
     href: '/sales',
     icon: ShoppingCart,
+  },
+  {
+    title: 'Penjualan Partner',
+    href: '/partner-sales',
+    icon: Briefcase,
   },
   {
     title: 'Jadwal Servis',
