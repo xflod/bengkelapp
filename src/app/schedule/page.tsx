@@ -15,7 +15,8 @@ import { CalendarPlus, PlayCircle, CheckCircle2, Edit3, Copy, Trash2, AlertCircl
 import { useToast } from "@/hooks/use-toast";
 import { format } from 'date-fns';
 import { id as localeID } from 'date-fns/locale';
-import { Slider } from "@/components/ui/slider"; // Added Slider
+import { Slider } from "@/components/ui/slider"; 
+import { Progress } from "@/components/ui/progress"; // Added Progress import
 
 interface ServiceJob {
   id: string;
