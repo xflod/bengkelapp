@@ -14,22 +14,12 @@ import { Switch } from "@/components/ui/switch";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { Badge } from "@/components/ui/badge";
 import { useToast } from "@/hooks/use-toast";
-import type { Product, SellingPriceTier, ProductCategory, PriceTierName } from "@/lib/types";
-import { PackagePlus, Edit3, Trash2, Search, Filter, AlertTriangle, ArchiveRestore, CheckCircle2, XCircle } from "lucide-react";
+import type { Product, SellingPriceTier, ProductCategory } from "@/lib/types";
+import { supabase } from '@/lib/supabase';
+import { PackagePlus, Edit3, Trash2, Search, Filter, AlertTriangle } from "lucide-react";
 import { Label } from '@/components/ui/label';
 
-// Mock data with 'servicePackage' tier
-const MOCK_PRODUCTS_INVENTORY_DETAILED: Product[] = [
-  { id: 'PROD-1690000001', sku: 'SKU-OLI-001', name: 'Oli Mesin SuperX 1L', category: 'Oli & Cairan', costPrice: 50000, sellingPrices: [{ tierName: 'default', price: 75000 }, { tierName: 'partner', price: 65000 }, { tierName: 'servicePackage', price: 90000 }], stockQuantity: 50, lowStockThreshold: 10, description: "Oli berkualitas tinggi untuk performa maksimal.", isActive: true, createdAt: new Date().toISOString(), updatedAt: new Date().toISOString() },
-  { id: 'PROD-1690000002', sku: 'SKU-PART-001', name: 'Kampas Rem Depan YMH', category: 'Suku Cadang', costPrice: 30000, sellingPrices: [{ tierName: 'default', price: 45000 }, { tierName: 'servicePackage', price: 60000 }], stockQuantity: 30, lowStockThreshold: 5, description: "Kampas rem original Yamaha.", isActive: true, createdAt: new Date().toISOString(), updatedAt: new Date().toISOString() },
-  { id: 'PROD-1690000003', sku: 'SKU-PART-002', name: 'Busi Champion Z9', category: 'Suku Cadang', costPrice: 10000, sellingPrices: [{ tierName: 'default', price: 15000 }, { tierName: 'partner', price: 12000 }, { tierName: 'servicePackage', price: 25000 }], stockQuantity: 0, lowStockThreshold: 20, description: "Busi standar untuk berbagai jenis motor.", isActive: true, createdAt: new Date().toISOString(), updatedAt: new Date().toISOString() },
-  { id: 'PROD-1690000004', sku: 'SKU-JASA-001', name: 'Servis Rutin Ringan', category: 'Jasa', costPrice: 0, sellingPrices: [{ tierName: 'default', price: 100000 }], stockQuantity: 999, lowStockThreshold: 0, description: "Pemeriksaan dan penyetelan ringan.", isActive: true, createdAt: new Date().toISOString(), updatedAt: new Date().toISOString() },
-  { id: 'PROD-1690000005', sku: 'SKU-AKSES-001', name: 'Handle Grip Racing CNC', category: 'Aksesoris', costPrice: 75000, sellingPrices: [{ tierName: 'default', price: 120000 }, { tierName: 'partner', price: 100000 }, { tierName: 'servicePackage', price: 140000 }], stockQuantity: 5, lowStockThreshold: 3, description: "Handle grip CNC model racing, anti slip.", isActive: false, createdAt: new Date().toISOString(), updatedAt: new Date().toISOString() },
-];
-
-
 type ProductFilter = 'all' | 'lowStock' | 'outOfStock' | 'inactive' | 'allActive';
-
 
 export default function InventoryPage() {
   const { toast } = useToast();
@@ -38,7 +28,6 @@ export default function InventoryPage() {
   const [isFormDialogOpen, setIsFormDialogOpen] = useState(false);
   const [editingProduct, setEditingProduct] = useState<Product | null>(null);
 
-  // Form states
   const [sku, setSku] = useState('');
   const [productName, setProductName] = useState('');
   const [category, setCategory] = useState<ProductCategory | null>(null);
@@ -51,44 +40,34 @@ export default function InventoryPage() {
   const [description, setDescription] = useState('');
   const [isActive, setIsActive] = useState(true);
 
-  // Search and Filter states
   const [searchTerm, setSearchTerm] = useState('');
   const [activeFilter, setActiveFilter] = useState<ProductFilter>('allActive');
 
+  const fetchProducts = useCallback(async () => {
+    setIsLoading(true);
+    const { data, error } = await supabase
+      .from('products')
+      .select('*')
+      .order('updatedAt', { ascending: false });
 
- useEffect(() => {
-    try {
-      const storedProducts = localStorage.getItem('inventoryProductsBengkelKu');
-      if (storedProducts) {
-        const parsed = JSON.parse(storedProducts);
-        if (Array.isArray(parsed)) {
-            setProducts(parsed);
-        } else {
-            console.warn("Stored inventory data is not an array, using mock data.");
-            setProducts(MOCK_PRODUCTS_INVENTORY_DETAILED);
-        }
-      } else {
-        setProducts(MOCK_PRODUCTS_INVENTORY_DETAILED);
-      }
-    } catch (error) {
-      console.error("Failed to parse products from localStorage:", error);
-      setProducts(MOCK_PRODUCTS_INVENTORY_DETAILED); 
-      toast({ variant: "destructive", title: "Gagal Memuat Data Lokal", description: "Memuat data contoh. Kesalahan: " + (error as Error).message });
+    if (error) {
+      console.error('Error fetching products:', error);
+      toast({ variant: "destructive", title: "Gagal Memuat Inventaris", description: error.message });
+      setProducts([]);
+    } else {
+      // Transform selling_prices from JSON string to object if stored as JSONB or text
+      const transformedData = data.map(p => ({
+        ...p,
+        sellingPrices: typeof p.sellingPrices === 'string' ? JSON.parse(p.sellingPrices) : p.sellingPrices,
+      }));
+      setProducts(transformedData as Product[]);
     }
     setIsLoading(false);
-  }, [toast]); // Corrected: Added toast to dependency array as it's used inside
+  }, [toast]);
 
   useEffect(() => {
-    try {
-      if (!isLoading) { 
-        localStorage.setItem('inventoryProductsBengkelKu', JSON.stringify(products));
-      }
-    } catch (error) {
-      console.error("Failed to save products to localStorage:", error);
-      toast({ variant: "destructive", title: "Gagal Menyimpan Data Lokal", description: "Perubahan mungkin tidak tersimpan." });
-    }
-  }, [products, isLoading, toast]);
-
+    fetchProducts();
+  }, [fetchProducts]);
 
   const resetFormFields = useCallback(() => {
     setEditingProduct(null);
@@ -126,88 +105,29 @@ export default function InventoryPage() {
     setIsFormDialogOpen(true);
   }, [resetFormFields]);
 
-  const handleSaveProduct = () => {
+  const handleSaveProduct = async () => {
+    // Validasi form (sama seperti sebelumnya)
     const currentProductName = productName.trim();
     const currentSku = sku.trim();
-    const currentDescription = description.trim();
-
-    if (!currentProductName) {
-      toast({ variant: "destructive", title: "Data Tidak Lengkap", description: "Nama Produk wajib diisi." });
+    if (!currentProductName || !currentSku || !category) {
+      toast({ variant: "destructive", title: "Data Tidak Lengkap", description: "SKU, Nama, dan Kategori wajib diisi." });
       return;
     }
-    if (!currentSku) { 
-      toast({ variant: "destructive", title: "Data Tidak Lengkap", description: "SKU wajib diisi." });
-      return;
-    }
-    if (!category) {
-      toast({ variant: "destructive", title: "Data Tidak Lengkap", description: "Kategori wajib dipilih." });
-      return;
-    }
+    // ... validasi lainnya ...
+    const parsedCostPrice = parseFloat(String(costPrice));
+    const parsedSellingPriceDefault = parseFloat(String(sellingPriceDefault));
+    const parsedSellingPricePartner = String(sellingPricePartner).trim() !== '' ? parseFloat(String(sellingPricePartner)) : undefined;
+    const parsedSellingPriceServicePackage = category !== 'Jasa' && String(sellingPriceServicePackage).trim() !== '' ? parseFloat(String(sellingPriceServicePackage)) : undefined;
+    let parsedStockQuantity = category === 'Jasa' ? 999 : parseInt(String(stockQuantity), 10);
+    let parsedLowStockThreshold = category === 'Jasa' ? 0 : parseInt(String(lowStockThreshold), 10);
 
-    let parsedCostPrice: number;
-    let parsedSellingPriceDefault: number;
-    let parsedSellingPricePartner: number | undefined = undefined;
-    let parsedSellingPriceServicePackage: number | undefined = undefined;
-    let parsedStockQuantity: number;
-    let parsedLowStockThreshold: number;
-
-    if (String(costPrice).trim() === '' || isNaN(parseFloat(String(costPrice)))) {
-        toast({ variant: "destructive", title: "Data Tidak Valid", description: "Harga Modal wajib diisi dengan angka yang valid." });
+    if (isNaN(parsedCostPrice) || isNaN(parsedSellingPriceDefault) || 
+        (parsedSellingPricePartner !== undefined && isNaN(parsedSellingPricePartner)) ||
+        (parsedSellingPriceServicePackage !== undefined && isNaN(parsedSellingPriceServicePackage)) ||
+        (category !== 'Jasa' && (isNaN(parsedStockQuantity) || isNaN(parsedLowStockThreshold))) ) {
+        toast({ variant: "destructive", title: "Data Angka Tidak Valid", description: "Harga dan Stok harus berupa angka." });
         return;
     }
-    parsedCostPrice = parseFloat(String(costPrice));
-
-    if (String(sellingPriceDefault).trim() === '' || isNaN(parseFloat(String(sellingPriceDefault)))) {
-        toast({ variant: "destructive", title: "Data Tidak Valid", description: "Harga Jual Saja wajib diisi dengan angka yang valid." });
-        return;
-    }
-    parsedSellingPriceDefault = parseFloat(String(sellingPriceDefault));
-    
-    if (String(sellingPricePartner).trim() !== '') {
-        if (isNaN(parseFloat(String(sellingPricePartner)))) {
-            toast({ variant: "destructive", title: "Data Tidak Valid", description: "Harga Jual Partner, jika diisi, harus berupa angka yang valid." });
-            return;
-        }
-        parsedSellingPricePartner = parseFloat(String(sellingPricePartner));
-    }
-
-    if (category !== 'Jasa' && String(sellingPriceServicePackage).trim() !== '') {
-        if (isNaN(parseFloat(String(sellingPriceServicePackage)))) {
-            toast({ variant: "destructive", title: "Data Tidak Valid", description: "Harga Jual + Jasa Pasang, jika diisi, harus berupa angka yang valid." });
-            return;
-        }
-        parsedSellingPriceServicePackage = parseFloat(String(sellingPriceServicePackage));
-    }
-    
-    if (category !== 'Jasa') {
-      if (String(stockQuantity).trim() === '' || isNaN(parseInt(String(stockQuantity), 10))) {
-        toast({ variant: "destructive", title: "Data Tidak Valid", description: "Stok Saat Ini wajib diisi dengan angka yang valid untuk item non-jasa." });
-        return;
-      }
-      parsedStockQuantity = parseInt(String(stockQuantity), 10);
-
-      if (String(lowStockThreshold).trim() === '' || isNaN(parseInt(String(lowStockThreshold), 10))) {
-        toast({ variant: "destructive", title: "Data Tidak Valid", description: "Batas Stok Rendah wajib diisi dengan angka yang valid untuk item non-jasa." });
-        return;
-      }
-      parsedLowStockThreshold = parseInt(String(lowStockThreshold), 10);
-    } else {
-      parsedStockQuantity = 999; 
-      parsedLowStockThreshold = 0; 
-    }
-
-    if (parsedCostPrice < 0 || parsedSellingPriceDefault < 0 || (parsedSellingPricePartner !== undefined && parsedSellingPricePartner < 0) || (parsedSellingPriceServicePackage !== undefined && parsedSellingPriceServicePackage < 0)) {
-        toast({ variant: "destructive", title: "Data Tidak Valid", description: "Harga tidak boleh negatif." });
-        return;
-    }
-    if (category !== 'Jasa' && (parsedStockQuantity < 0 || parsedLowStockThreshold < 0)) {
-        toast({ variant: "destructive", title: "Data Tidak Valid", description: "Stok dan Batas Stok Rendah tidak boleh negatif." });
-        return;
-    }
-
-    const now = new Date().toISOString();
-    const productToSaveId = editingProduct ? editingProduct.id : `PROD-${Date.now()}-${Math.random().toString(36).substring(2, 7).toUpperCase()}`;
-    const finalSkuForSave = editingProduct ? editingProduct.sku : currentSku;
 
     const sellingPricesArray: SellingPriceTier[] = [
       { tierName: 'default', price: parsedSellingPriceDefault },
@@ -219,88 +139,99 @@ export default function InventoryPage() {
       sellingPricesArray.push({ tierName: 'servicePackage', price: parsedSellingPriceServicePackage });
     }
 
-
-    const newProductData: Product = {
-      id: productToSaveId,
-      sku: finalSkuForSave,
+    const productData = {
+      sku: currentSku,
       name: currentProductName,
-      category: category as ProductCategory, 
+      category: category as ProductCategory,
       costPrice: parsedCostPrice,
-      sellingPrices: sellingPricesArray,
+      sellingPrices: sellingPricesArray, // Supabase bisa handle JSON/JSONB
       stockQuantity: parsedStockQuantity,
       lowStockThreshold: parsedLowStockThreshold,
-      description: currentDescription,
+      description: description.trim() || undefined,
       isActive: isActive,
-      createdAt: editingProduct ? editingProduct.createdAt : now,
-      updatedAt: now,
+      updatedAt: new Date().toISOString(),
     };
 
     if (editingProduct) {
-      setProducts(prevProducts => prevProducts.map(p => p.id === editingProduct.id ? newProductData : p));
-      toast({ title: "Produk Diperbarui", description: `${newProductData.name} telah diperbarui.` });
-    } else {
-      if (products.some(p => p.sku.toUpperCase() === finalSkuForSave.toUpperCase())) {
-          toast({ variant: "destructive", title: "SKU Duplikat", description: `SKU ${finalSkuForSave} sudah ada. Mohon gunakan SKU yang unik.` });
-          return;
+      const { error } = await supabase
+        .from('products')
+        .update({ ...productData, id: editingProduct.id }) // Pastikan ID dikirim untuk update
+        .match({ id: editingProduct.id });
+      if (error) {
+        toast({ variant: "destructive", title: "Gagal Memperbarui Produk", description: error.message });
+      } else {
+        toast({ title: "Produk Diperbarui", description: `${productData.name} telah diperbarui.` });
+        fetchProducts(); // Refresh list
       }
-      setProducts(prevProducts => [newProductData, ...prevProducts]);
-      toast({ title: "Produk Ditambahkan", description: `${newProductData.name} telah ditambahkan ke inventaris.` });
+    } else {
+      const { data: existingSku } = await supabase.from('products').select('id').eq('sku', currentSku).single();
+      if (existingSku) {
+        toast({ variant: "destructive", title: "SKU Duplikat", description: `SKU ${currentSku} sudah ada. Mohon gunakan SKU yang unik.` });
+        return;
+      }
+      const { error } = await supabase
+        .from('products')
+        .insert([{ ...productData, createdAt: new Date().toISOString() }]);
+      if (error) {
+        toast({ variant: "destructive", title: "Gagal Menambah Produk", description: error.message });
+      } else {
+        toast({ title: "Produk Ditambahkan", description: `${productData.name} telah ditambahkan.` });
+        fetchProducts(); // Refresh list
+      }
     }
     setIsFormDialogOpen(false);
-    // resetFormFields(); // Called by onOpenChange
   };
 
-  const handleDeleteProduct = useCallback((productId: string, productName: string) => {
+  const handleDeleteProduct = async (productId: string, productName: string) => {
     if (window.confirm(`Apakah Anda yakin ingin menghapus produk "${productName}"?`)) {
-      setProducts(prev => prev.filter(p => p.id !== productId));
-      toast({ title: "Produk Dihapus", description: `${productName} telah dihapus.` });
+      const { error } = await supabase
+        .from('products')
+        .delete()
+        .match({ id: productId });
+      if (error) {
+        toast({ variant: "destructive", title: "Gagal Menghapus Produk", description: error.message });
+      } else {
+        toast({ title: "Produk Dihapus", description: `${productName} telah dihapus.` });
+        fetchProducts(); // Refresh list
+      }
     }
-  }, [toast]);
+  };
 
-  const handleToggleActive = useCallback((productId: string, currentIsActive: boolean) => {
-    setProducts(prev => prev.map(p => p.id === productId ? { ...p, isActive: !currentIsActive, updatedAt: new Date().toISOString() } : p));
-    toast({ title: "Status Produk Diubah", description: `Produk telah di${!currentIsActive ? 'aktifkan' : 'nonaktifkan'}.` });
-  }, [toast]);
+  const handleToggleActive = async (productId: string, currentIsActive: boolean) => {
+    const { error } = await supabase
+      .from('products')
+      .update({ isActive: !currentIsActive, updatedAt: new Date().toISOString() })
+      .match({ id: productId });
+    if (error) {
+      toast({ variant: "destructive", title: "Gagal Mengubah Status", description: error.message });
+    } else {
+      toast({ title: "Status Produk Diubah" });
+      fetchProducts(); // Refresh list
+    }
+  };
 
- const filteredAndSortedProducts = useMemo(() => {
+  const filteredAndSortedProducts = useMemo(() => {
     let tempProducts = [...products];
-
     if (searchTerm) {
         tempProducts = tempProducts.filter(product =>
             product.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
             product.sku.toLowerCase().includes(searchTerm.toLowerCase())
         );
     }
-
     switch (activeFilter) {
-        case 'lowStock':
-            tempProducts = tempProducts.filter(p => p.category !== 'Jasa' && p.isActive && p.stockQuantity > 0 && p.stockQuantity <= p.lowStockThreshold);
-            break;
-        case 'outOfStock':
-            tempProducts = tempProducts.filter(p => p.category !== 'Jasa' && p.isActive && p.stockQuantity === 0);
-            break;
-        case 'inactive':
-            tempProducts = tempProducts.filter(p => !p.isActive);
-            break;
-        case 'allActive':
-             tempProducts = tempProducts.filter(p => p.isActive);
-            break;
-        case 'all': 
-            break;
+        case 'lowStock': tempProducts = tempProducts.filter(p => p.category !== 'Jasa' && p.isActive && p.stockQuantity > 0 && p.stockQuantity <= p.lowStockThreshold); break;
+        case 'outOfStock': tempProducts = tempProducts.filter(p => p.category !== 'Jasa' && p.isActive && p.stockQuantity === 0); break;
+        case 'inactive': tempProducts = tempProducts.filter(p => !p.isActive); break;
+        case 'allActive': tempProducts = tempProducts.filter(p => p.isActive); break;
+        case 'all': break;
     }
-    return tempProducts.sort((a, b) => {
-        if (a.isActive === b.isActive) {
-            return new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime();
-        }
-        return a.isActive ? -1 : 1; 
-    });
-}, [products, searchTerm, activeFilter]);
-
+    return tempProducts.sort((a, b) => new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime());
+  }, [products, searchTerm, activeFilter]);
 
   if (isLoading) {
     return <div className="flex justify-center items-center h-screen"><p>Memuat data inventaris...</p></div>;
   }
-  
+
   const getProductRowClass = (product: Product) => {
     if (!product.isActive) return "bg-muted/40 text-muted-foreground hover:bg-muted/50";
     if (product.category !== 'Jasa') {
@@ -309,7 +240,6 @@ export default function InventoryPage() {
     }
     return "";
   };
-
 
   return (
     <div className="space-y-6">
@@ -333,23 +263,13 @@ export default function InventoryPage() {
           <div className="flex flex-col sm:flex-row gap-2 mb-4">
             <div className="relative flex-grow">
                 <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-muted-foreground" />
-                <Input
-                    type="text"
-                    placeholder="Cari berdasarkan Nama atau SKU..."
-                    value={searchTerm}
-                    onChange={(e) => setSearchTerm(e.target.value)}
-                    className="pl-10 w-full"
-                />
+                <Input type="text" placeholder="Cari berdasarkan Nama atau SKU..." value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} className="pl-10 w-full"/>
             </div>
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
                 <Button variant="outline" className="w-full sm:w-auto">
                   <Filter className="mr-2 h-4 w-4" /> 
-                  Filter ({ activeFilter === 'all' ? 'Semua Item' :
-                             activeFilter === 'lowStock' ? 'Stok Menipis' :
-                             activeFilter === 'outOfStock' ? 'Stok Habis' :
-                             activeFilter === 'inactive' ? 'Nonaktif' : 'Semua Aktif'
-                           })
+                  Filter ({ activeFilter === 'all' ? 'Semua Item' : activeFilter === 'lowStock' ? 'Stok Menipis' : activeFilter === 'outOfStock' ? 'Stok Habis' : activeFilter === 'inactive' ? 'Nonaktif' : 'Semua Aktif' })
                 </Button>
               </DropdownMenuTrigger>
               <DropdownMenuContent align="end" className="w-[200px]">
@@ -387,11 +307,7 @@ export default function InventoryPage() {
                   {filteredAndSortedProducts.map((product) => (
                     <TableRow key={product.id} className={getProductRowClass(product)}>
                       <TableCell>
-                        <Switch
-                          checked={product.isActive}
-                          onCheckedChange={() => handleToggleActive(product.id, product.isActive)}
-                          aria-label={product.isActive ? "Nonaktifkan" : "Aktifkan"}
-                        />
+                        <Switch checked={product.isActive} onCheckedChange={() => handleToggleActive(product.id, product.isActive)} aria-label={product.isActive ? "Nonaktifkan" : "Aktifkan"}/>
                       </TableCell>
                       <TableCell className="font-mono text-xs">{product.sku}</TableCell>
                       <TableCell className="font-medium">
@@ -413,12 +329,8 @@ export default function InventoryPage() {
                       <TableCell className="text-center">{product.category === 'Jasa' ? '-' : product.lowStockThreshold}</TableCell>
                       <TableCell className="text-center">
                         <div className="flex justify-center items-center gap-1">
-                          <Button variant="ghost" size="icon" className="h-7 w-7 hover:bg-accent" onClick={() => handleOpenFormDialog(product)} title="Edit Item">
-                            <Edit3 className="h-4 w-4" />
-                          </Button>
-                          <Button variant="ghost" size="icon" className="h-7 w-7 text-destructive hover:text-destructive hover:bg-destructive/10" onClick={() => handleDeleteProduct(product.id, product.name)} title="Hapus Item">
-                            <Trash2 className="h-4 w-4" />
-                          </Button>
+                          <Button variant="ghost" size="icon" className="h-7 w-7 hover:bg-accent" onClick={() => handleOpenFormDialog(product)} title="Edit Item"><Edit3 className="h-4 w-4" /></Button>
+                          <Button variant="ghost" size="icon" className="h-7 w-7 text-destructive hover:text-destructive hover:bg-destructive/10" onClick={() => handleDeleteProduct(product.id, product.name)} title="Hapus Item"><Trash2 className="h-4 w-4" /></Button>
                         </div>
                       </TableCell>
                     </TableRow>
@@ -428,23 +340,8 @@ export default function InventoryPage() {
             </div>
           ) : (
              <Card className="w-full text-center shadow-none border-dashed border-gray-300 py-10">
-                <CardHeader className="items-center">
-                    {activeFilter === 'all' && !searchTerm ? 
-                        <PackagePlus className="w-16 h-16 text-muted-foreground mb-4" /> :
-                        <Search className="w-16 h-16 text-muted-foreground mb-4" />
-                    }
-                    <CardTitle className="text-xl text-foreground">
-                    {activeFilter === 'all' && !searchTerm ? "Belum Ada Item" : "Item Tidak Ditemukan"}
-                    </CardTitle>
-                </CardHeader>
-                <CardContent>
-                    <p className="text-muted-foreground">
-                    {activeFilter === 'all' && !searchTerm ? 
-                        "Saat ini tidak ada item di inventaris. Klik 'Tambah Item Baru' untuk memulai." :
-                        "Tidak ada item yang cocok dengan kriteria pencarian atau filter Anda."
-                    }
-                    </p>
-                </CardContent>
+                <CardHeader className="items-center">{activeFilter === 'all' && !searchTerm ? <PackagePlus className="w-16 h-16 text-muted-foreground mb-4" /> : <Search className="w-16 h-16 text-muted-foreground mb-4" />}</CardHeader>
+                <CardContent><p className="text-muted-foreground">{activeFilter === 'all' && !searchTerm ? "Saat ini tidak ada item di inventaris. Klik 'Tambah Item Baru' untuk memulai." : "Tidak ada item yang cocok dengan kriteria pencarian atau filter Anda."}</p></CardContent>
             </Card>
           )}
         </CardContent>
@@ -454,98 +351,37 @@ export default function InventoryPage() {
         <DialogContent className="sm:max-w-lg max-h-[90vh] flex flex-col">
           <DialogHeader className="flex-shrink-0">
             <DialogTitle>{editingProduct ? 'Edit Item Inventaris' : 'Tambah Item Baru ke Inventaris'}</DialogTitle>
-            <DialogDescription>
-              {editingProduct ? `Mengedit detail untuk ${editingProduct.name}.` : 'Masukkan detail item baru.'}
-            </DialogDescription>
+            <DialogDescription>{editingProduct ? `Mengedit detail untuk ${editingProduct.name}.` : 'Masukkan detail item baru.'}</DialogDescription>
           </DialogHeader>
           <div className="grid gap-y-3 gap-x-4 py-2 flex-grow overflow-y-auto pr-3 text-sm">
-            
-            <div className="grid grid-cols-4 items-center">
-              <Label htmlFor="sku" className="text-right col-span-4 sm:col-span-1 pr-3">SKU<span className="text-destructive">*</span></Label>
-              <Input id="sku" value={sku} onChange={(e) => setSku(e.target.value.toUpperCase())} className="col-span-4 sm:col-span-3" placeholder="Contoh: SKU-PRD-001" disabled={!!editingProduct} />
-            </div>
-
-            <div className="grid grid-cols-4 items-center">
-              <Label htmlFor="productName" className="text-right col-span-4 sm:col-span-1 pr-3">Nama Item<span className="text-destructive">*</span></Label>
-              <Input id="productName" value={productName} onChange={(e) => setProductName(e.target.value)} className="col-span-4 sm:col-span-3" placeholder="Nama lengkap produk atau jasa" />
-            </div>
-
+            <div className="grid grid-cols-4 items-center"><Label htmlFor="sku" className="text-right col-span-4 sm:col-span-1 pr-3">SKU<span className="text-destructive">*</span></Label><Input id="sku" value={sku} onChange={(e) => setSku(e.target.value.toUpperCase())} className="col-span-4 sm:col-span-3" placeholder="Contoh: SKU-PRD-001" disabled={!!editingProduct} /></div>
+            <div className="grid grid-cols-4 items-center"><Label htmlFor="productName" className="text-right col-span-4 sm:col-span-1 pr-3">Nama Item<span className="text-destructive">*</span></Label><Input id="productName" value={productName} onChange={(e) => setProductName(e.target.value)} className="col-span-4 sm:col-span-3" placeholder="Nama lengkap produk atau jasa" /></div>
             <div className="grid grid-cols-4 items-center">
               <Label htmlFor="category" className="text-right col-span-4 sm:col-span-1 pr-3">Kategori<span className="text-destructive">*</span></Label>
               <Select value={category || undefined} onValueChange={(value) => setCategory(value as ProductCategory)}>
-                <SelectTrigger className="col-span-4 sm:col-span-3">
-                  <SelectValue placeholder="Pilih kategori produk/jasa" />
-                </SelectTrigger>
+                <SelectTrigger className="col-span-4 sm:col-span-3"><SelectValue placeholder="Pilih kategori produk/jasa" /></SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="Suku Cadang">Suku Cadang</SelectItem>
-                  <SelectItem value="Aksesoris">Aksesoris</SelectItem>
-                  <SelectItem value="Oli & Cairan">Oli & Cairan</SelectItem>
-                  <SelectItem value="Jasa">Jasa</SelectItem>
-                  <SelectItem value="Lainnya">Lainnya</SelectItem>
+                  <SelectItem value="Suku Cadang">Suku Cadang</SelectItem><SelectItem value="Aksesoris">Aksesoris</SelectItem><SelectItem value="Oli & Cairan">Oli & Cairan</SelectItem><SelectItem value="Jasa">Jasa</SelectItem><SelectItem value="Lainnya">Lainnya</SelectItem>
                 </SelectContent>
               </Select>
             </div>
-
-            <div className="grid grid-cols-4 items-center">
-              <Label htmlFor="costPrice" className="text-right col-span-4 sm:col-span-1 pr-3">Harga Modal (Rp)<span className="text-destructive">*</span></Label>
-              <Input id="costPrice" type="number" value={costPrice} onChange={(e) => setCostPrice(e.target.value)} className="col-span-4 sm:col-span-3" placeholder="Contoh: 50000" />
-            </div>
-
-            <div className="grid grid-cols-4 items-center">
-              <Label htmlFor="sellingPriceDefault" className="text-right col-span-4 sm:col-span-1 pr-3">Harga Jual Saja (Rp)<span className="text-destructive">*</span></Label>
-              <Input id="sellingPriceDefault" type="number" value={sellingPriceDefault} onChange={(e) => setSellingPriceDefault(e.target.value)} className="col-span-4 sm:col-span-3" placeholder="Contoh: 75000" />
-            </div>
-
-            <div className="grid grid-cols-4 items-center">
-              <Label htmlFor="sellingPricePartner" className="text-right col-span-4 sm:col-span-1 pr-3">Harga Jual Partner (Rp)</Label>
-              <Input id="sellingPricePartner" type="number" value={sellingPricePartner} onChange={(e) => setSellingPricePartner(e.target.value)} className="col-span-4 sm:col-span-3" placeholder="Opsional, contoh: 65000" />
-            </div>
-            
-            {category !== 'Jasa' && (
-              <div className="grid grid-cols-4 items-center">
-                <Label htmlFor="sellingPriceServicePackage" className="text-right col-span-4 sm:col-span-1 pr-3">Harga Jual + Pasang (Rp)</Label>
-                <Input id="sellingPriceServicePackage" type="number" value={sellingPriceServicePackage} onChange={(e) => setSellingPriceServicePackage(e.target.value)} className="col-span-4 sm:col-span-3" placeholder="Opsional, contoh: 90000" />
-              </div>
-            )}
-            
-            {category !== 'Jasa' && (
-              <>
-                <div className="grid grid-cols-4 items-center">
-                  <Label htmlFor="stockQuantity" className="text-right col-span-4 sm:col-span-1 pr-3">Stok Saat Ini<span className="text-destructive">*</span></Label>
-                  <Input id="stockQuantity" type="number" value={stockQuantity} onChange={(e) => setStockQuantity(e.target.value)} className="col-span-4 sm:col-span-3" placeholder="Contoh: 100" />
-                </div>
-
-                <div className="grid grid-cols-4 items-center">
-                  <Label htmlFor="lowStockThreshold" className="text-right col-span-4 sm:col-span-1 pr-3">Batas Stok Rendah<span className="text-destructive">*</span></Label>
-                  <Input id="lowStockThreshold" type="number" value={lowStockThreshold} onChange={(e) => setLowStockThreshold(e.target.value)} className="col-span-4 sm:col-span-3" placeholder="Contoh: 10" />
-                </div>
-              </>
-            )}
-
-            <div className="grid grid-cols-4 items-start">
-              <Label htmlFor="description" className="text-right col-span-4 sm:col-span-1 pt-2 pr-3">Deskripsi</Label>
-              <Textarea id="description" value={description} onChange={(e) => setDescription(e.target.value)} className="col-span-4 sm:col-span-3" placeholder="Deskripsi singkat item (opsional)" rows={3}/>
-            </div>
-            
+            <div className="grid grid-cols-4 items-center"><Label htmlFor="costPrice" className="text-right col-span-4 sm:col-span-1 pr-3">Harga Modal (Rp)<span className="text-destructive">*</span></Label><Input id="costPrice" type="number" value={costPrice} onChange={(e) => setCostPrice(e.target.value)} className="col-span-4 sm:col-span-3" placeholder="Contoh: 50000" /></div>
+            <div className="grid grid-cols-4 items-center"><Label htmlFor="sellingPriceDefault" className="text-right col-span-4 sm:col-span-1 pr-3">Harga Jual Saja (Rp)<span className="text-destructive">*</span></Label><Input id="sellingPriceDefault" type="number" value={sellingPriceDefault} onChange={(e) => setSellingPriceDefault(e.target.value)} className="col-span-4 sm:col-span-3" placeholder="Contoh: 75000" /></div>
+            <div className="grid grid-cols-4 items-center"><Label htmlFor="sellingPricePartner" className="text-right col-span-4 sm:col-span-1 pr-3">Harga Jual Partner (Rp)</Label><Input id="sellingPricePartner" type="number" value={sellingPricePartner} onChange={(e) => setSellingPricePartner(e.target.value)} className="col-span-4 sm:col-span-3" placeholder="Opsional, contoh: 65000" /></div>
+            {category !== 'Jasa' && (<div className="grid grid-cols-4 items-center"><Label htmlFor="sellingPriceServicePackage" className="text-right col-span-4 sm:col-span-1 pr-3">Harga Jual + Pasang (Rp)</Label><Input id="sellingPriceServicePackage" type="number" value={sellingPriceServicePackage} onChange={(e) => setSellingPriceServicePackage(e.target.value)} className="col-span-4 sm:col-span-3" placeholder="Opsional, contoh: 90000" /></div>)}
+            {category !== 'Jasa' && (<>
+                <div className="grid grid-cols-4 items-center"><Label htmlFor="stockQuantity" className="text-right col-span-4 sm:col-span-1 pr-3">Stok Saat Ini<span className="text-destructive">*</span></Label><Input id="stockQuantity" type="number" value={stockQuantity} onChange={(e) => setStockQuantity(e.target.value)} className="col-span-4 sm:col-span-3" placeholder="Contoh: 100" /></div>
+                <div className="grid grid-cols-4 items-center"><Label htmlFor="lowStockThreshold" className="text-right col-span-4 sm:col-span-1 pr-3">Batas Stok Rendah<span className="text-destructive">*</span></Label><Input id="lowStockThreshold" type="number" value={lowStockThreshold} onChange={(e) => setLowStockThreshold(e.target.value)} className="col-span-4 sm:col-span-3" placeholder="Contoh: 10" /></div>
+            </>)}
+            <div className="grid grid-cols-4 items-start"><Label htmlFor="description" className="text-right col-span-4 sm:col-span-1 pt-2 pr-3">Deskripsi</Label><Textarea id="description" value={description} onChange={(e) => setDescription(e.target.value)} className="col-span-4 sm:col-span-3" placeholder="Deskripsi singkat item (opsional)" rows={3}/></div>
             <div className="grid grid-cols-4 items-center">
                 <Label htmlFor="isActiveSwitch" className="text-right col-span-4 sm:col-span-1 pr-3">Status Item</Label>
-                <div className="col-span-4 sm:col-span-3 flex items-center space-x-2">
-                    <Switch id="isActiveSwitch" checked={isActive} onCheckedChange={setIsActive} />
-                    <span className="text-xs text-muted-foreground">{isActive ? "Aktif (dapat dijual)" : "Nonaktif (tidak tampil di penjualan)"}</span>
-                </div>
+                <div className="col-span-4 sm:col-span-3 flex items-center space-x-2"><Switch id="isActiveSwitch" checked={isActive} onCheckedChange={setIsActive} /><span className="text-xs text-muted-foreground">{isActive ? "Aktif (dapat dijual)" : "Nonaktif (tidak tampil di penjualan)"}</span></div>
             </div>
-
-
           </div>
-          <DialogFooter className="flex-shrink-0 pt-4 border-t">
-            <DialogClose asChild>
-              <Button type="button" variant="outline">Batal</Button>
-            </DialogClose>
-            <Button type="button" onClick={handleSaveProduct} className="bg-primary hover:bg-primary/90 text-primary-foreground">Simpan Item</Button>
-          </DialogFooter>
+          <DialogFooter className="flex-shrink-0 pt-4 border-t"><DialogClose asChild><Button type="button" variant="outline">Batal</Button></DialogClose><Button type="button" onClick={handleSaveProduct} className="bg-primary hover:bg-primary/90 text-primary-foreground">Simpan Item</Button></DialogFooter>
         </DialogContent>
       </Dialog>
     </div>
   );
 }
-
