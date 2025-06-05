@@ -313,7 +313,11 @@ export default function SalesPage() {
         title="Manajemen Penjualan (POS)"
         description="Catat transaksi penjualan jasa dan barang."
         actions={
-          <Button onClick={openPaymentDialog} className="bg-primary hover:bg-primary/90 text-primary-foreground" disabled={cart.length === 0}>
+          <Button 
+            onClick={openPaymentDialog} 
+            className="bg-primary hover:bg-primary/90 text-primary-foreground whitespace-normal sm:whitespace-nowrap text-center sm:text-left px-3 sm:px-4 py-2 text-sm sm:text-base" 
+            disabled={cart.length === 0}
+          >
             <CreditCard className="mr-2 h-4 w-4" />
             Bayar (Rp {subtotal.toLocaleString()})
           </Button>
@@ -413,7 +417,7 @@ export default function SalesPage() {
         </div>
 
         <div className="md:w-1/3 space-y-4">
-          <Card className="shadow-md sticky top-20">
+          <Card className="shadow-md md:sticky md:top-20">
             <CardHeader>
               <CardTitle>Keranjang Belanja</CardTitle>
               <CardDescription>Total Item: {cart.reduce((sum, item) => sum + item.quantity, 0)}</CardDescription>
@@ -495,13 +499,13 @@ export default function SalesPage() {
                   value={cashReceived}
                   onChange={(e) => setCashReceived(e.target.value)}
                   placeholder="e.g. 150000"
-                  className="text-base"
+                  className="text-base w-full"
                 />
               </div>
-              <div className="flex gap-2">
-                <Button variant="outline" onClick={() => handlePresetCash(subtotal)} className="flex-1 text-xs">Uang Pas</Button>
-                <Button variant="outline" onClick={() => handlePresetCash(50000)} className="flex-1 text-xs">Rp 50rb</Button>
-                <Button variant="outline" onClick={() => handlePresetCash(100000)} className="flex-1 text-xs">Rp 100rb</Button>
+              <div className="flex flex-wrap gap-2">
+                <Button variant="outline" onClick={() => handlePresetCash(subtotal)} className="flex-1 text-xs min-w-[80px]">Uang Pas</Button>
+                <Button variant="outline" onClick={() => handlePresetCash(50000)} className="flex-1 text-xs min-w-[80px]">Rp 50rb</Button>
+                <Button variant="outline" onClick={() => handlePresetCash(100000)} className="flex-1 text-xs min-w-[80px]">Rp 100rb</Button>
               </div>
                <div className="space-y-1 text-right">
                  <p className="text-sm">Total: Rp {subtotal.toLocaleString()}</p>
@@ -538,7 +542,7 @@ export default function SalesPage() {
 
           <DialogFooter className="sm:justify-start mt-4">
             <DialogClose asChild>
-              <Button type="button" variant="outline">
+              <Button type="button" variant="outline" className="w-full sm:w-auto">
                 Batal
               </Button>
             </DialogClose>
@@ -548,7 +552,7 @@ export default function SalesPage() {
 
       {/* Receipt Modal */}
       <Dialog open={isReceiptModalOpen} onOpenChange={setIsReceiptModalOpen}>
-        <DialogContent className="sm:max-w-sm">
+        <DialogContent className="sm:max-w-sm w-[90vw]">
           <DialogHeader>
             <DialogTitle>Nota Transaksi</DialogTitle>
             <DialogDescription>
@@ -579,10 +583,10 @@ export default function SalesPage() {
               <tbody>
                 {receiptDetails?.items.map(item => (
                   <tr key={item.productId}>
-                    <td className="py-0.5">{item.productName}</td>
+                    <td className="py-0.5 break-words">{item.productName}</td>
                     <td className="text-center py-0.5">{item.quantity}</td>
-                    <td className="text-right py-0.5">{item.unitPrice.toLocaleString()}</td>
-                    <td className="text-right py-0.5">{item.totalPrice.toLocaleString()}</td>
+                    <td className="text-right py-0.5 whitespace-nowrap">{item.unitPrice.toLocaleString()}</td>
+                    <td className="text-right py-0.5 whitespace-nowrap">{item.totalPrice.toLocaleString()}</td>
                   </tr>
                 ))}
               </tbody>
@@ -603,7 +607,7 @@ export default function SalesPage() {
             <p className="text-center text-[0.6rem]">Layanan & Suku Cadang Motor</p>
           </div>
 
-          <DialogFooter className="gap-2 mt-4">
+          <DialogFooter className="flex flex-col sm:flex-row sm:justify-end gap-2 mt-4">
             <Button onClick={handleDownloadReceipt} variant="outline" className="w-full sm:w-auto">
               <Download className="mr-2 h-4 w-4" /> Unduh Nota (PNG)
             </Button>
