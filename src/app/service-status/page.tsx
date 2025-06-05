@@ -1,7 +1,8 @@
 
 "use client";
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
+import { useSearchParams } from 'next/navigation';
 import { PageHeader } from "@/components/shared/PageHeader";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -9,13 +10,12 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Progress } from "@/components/ui/progress";
 import { Badge } from "@/components/ui/badge";
-import { Label } from "@/components/ui/label"; // Added missing import
+import { Label } from "@/components/ui/label";
 import { Hourglass, PlayCircle, CheckCircle2, AlertCircle, XCircle, Search, Info } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { format } from 'date-fns';
 import { id as localeID } from 'date-fns/locale';
 
-// Mirrored from schedule/page.tsx for consistency
 interface ServiceJob {
   id: string;
   customerName: string;
@@ -34,29 +34,31 @@ interface ServiceJob {
 
 export default function ServiceStatusPage() {
   const { toast } = useToast();
+  const searchParams = useSearchParams();
   const [accessCodeInput, setAccessCodeInput] = useState('');
-  const [serviceJob, setServiceJob] = useState<ServiceJob | null | undefined>(undefined); // undefined for initial, null for not found
+  const [serviceJob, setServiceJob] = useState<ServiceJob | null | undefined>(undefined); 
   const [isLoading, setIsLoading] = useState(false);
 
-  const handleCheckStatus = () => {
-    if (!accessCodeInput.trim()) {
+  const performSearch = useCallback(async (codeToSearch: string) => {
+    if (!codeToSearch) {
       toast({ variant: "destructive", title: "Kode Akses Kosong", description: "Mohon masukkan kode akses servis Anda." });
+      setIsLoading(false);
       return;
     }
     setIsLoading(true);
-    setServiceJob(undefined); // Reset previous result
+    setServiceJob(undefined); 
 
     try {
       const storedJobsString = localStorage.getItem('serviceJobsBengkelKu');
       if (storedJobsString) {
         const storedJobs: ServiceJob[] = JSON.parse(storedJobsString);
-        const foundJob = storedJobs.find(job => job.accessCode.toUpperCase() === accessCodeInput.trim().toUpperCase());
+        const foundJob = storedJobs.find(job => job.accessCode.toUpperCase() === codeToSearch.toUpperCase());
         
-        setTimeout(() => { // Simulate network delay
+        setTimeout(() => { 
             if (foundJob) {
                 setServiceJob(foundJob);
             } else {
-                setServiceJob(null); // Explicitly set to null if not found
+                setServiceJob(null); 
                 toast({ variant: "destructive", title: "Kode Tidak Ditemukan", description: "Kode akses servis tidak valid atau tidak ditemukan." });
             }
             setIsLoading(false);
@@ -73,7 +75,22 @@ export default function ServiceStatusPage() {
       toast({ variant: "destructive", title: "Terjadi Kesalahan", description: "Gagal mengambil data status servis." });
       setIsLoading(false);
     }
+  }, [toast]);
+
+  const handleManualCheck = () => {
+    performSearch(accessCodeInput.trim());
   };
+  
+  useEffect(() => {
+    const codeFromQuery = searchParams.get('code');
+    if (codeFromQuery) {
+      setAccessCodeInput(codeFromQuery); 
+      if (!isLoading && serviceJob === undefined) { 
+          performSearch(codeFromQuery);
+      }
+    }
+  }, [searchParams, isLoading, serviceJob, performSearch]);
+
 
   const getStatusBadge = (status: ServiceJob['status']): React.ReactNode => {
     let variant: "default" | "secondary" | "destructive" | "outline" = "default";
@@ -116,9 +133,9 @@ export default function ServiceStatusPage() {
               onChange={(e) => setAccessCodeInput(e.target.value)}
               className="flex-grow text-lg"
               disabled={isLoading}
-              onKeyDown={(e) => { if (e.key === 'Enter') handleCheckStatus(); }}
+              onKeyDown={(e) => { if (e.key === 'Enter') handleManualCheck(); }}
             />
-            <Button onClick={handleCheckStatus} disabled={isLoading || !accessCodeInput.trim()} className="bg-primary hover:bg-primary/90 text-primary-foreground">
+            <Button onClick={handleManualCheck} disabled={isLoading || !accessCodeInput.trim()} className="bg-primary hover:bg-primary/90 text-primary-foreground">
               <Search className="mr-2 h-4 w-4" />
               {isLoading ? "Mencari..." : "Cek Status"}
             </Button>
@@ -235,4 +252,3 @@ export default function ServiceStatusPage() {
     </div>
   );
 }
-

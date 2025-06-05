@@ -11,12 +11,12 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge";
-import { CalendarPlus, PlayCircle, CheckCircle2, Edit3, Copy, Trash2, AlertCircle, Hourglass, XCircle, Percent } from "lucide-react";
+import { CalendarPlus, PlayCircle, CheckCircle2, Edit3, Copy, Trash2, AlertCircle, Hourglass, XCircle, ExternalLink, ClipboardCopy } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { format } from 'date-fns';
 import { id as localeID } from 'date-fns/locale';
 import { Slider } from "@/components/ui/slider"; 
-import { Progress } from "@/components/ui/progress"; // Added Progress import
+import { Progress } from "@/components/ui/progress";
 
 interface ServiceJob {
   id: string;
@@ -31,7 +31,7 @@ interface ServiceJob {
   accessCode: string;
   createdAt: string; 
   updatedAt: string;
-  estimatedProgress?: number; // New field
+  estimatedProgress?: number;
 }
 
 const generateId = () => `SJ-${Date.now()}-${Math.random().toString(36).substring(2, 7)}`;
@@ -52,7 +52,7 @@ export default function SchedulePage() {
   const [workDoneNotes, setWorkDoneNotes] = useState('');
   const [currentStatus, setCurrentStatus] = useState<ServiceJob['status']>('Antrian');
   const [currentAccessCode, setCurrentAccessCode] = useState('');
-  const [estimatedProgress, setEstimatedProgress] = useState<number[]>([0]); // For Slider component
+  const [estimatedProgress, setEstimatedProgress] = useState<number[]>([0]);
 
 
   useEffect(() => {
@@ -159,10 +159,10 @@ export default function SchedulePage() {
 
           if (newStatus === 'Dikerjakan' && !job.actualStartTime) {
             updatedJob.actualStartTime = now;
-            updatedJob.estimatedProgress = Math.max(updatedJob.estimatedProgress || 0, 5); // Auto set to 5% if starting
+            updatedJob.estimatedProgress = Math.max(updatedJob.estimatedProgress || 0, 5);
             toastMessage = `Servis untuk ${job.vehiclePlate} mulai dikerjakan.`;
           } else if (newStatus === 'Selesai') {
-            updatedJob.estimatedProgress = 100; // Auto set to 100% if completed
+            updatedJob.estimatedProgress = 100; 
             toastMessage = `Servis untuk ${job.vehiclePlate} telah selesai.`;
           }
           toast({ title: "Status Diperbarui", description: toastMessage });
@@ -187,6 +187,20 @@ export default function SchedulePage() {
       toast({ variant: "destructive", title: "Gagal Menyalin", description: "Tidak dapat menyalin kode akses." });
     });
   }, [toast]);
+
+  const handleCopyStatusLink = useCallback((accessCode: string) => {
+    const url = `${window.location.origin}/service-status?code=${accessCode}`;
+    navigator.clipboard.writeText(url).then(() => {
+      toast({ title: "Link Status Disalin", description: "Link cek status pelanggan telah disalin." });
+    }).catch(() => {
+      toast({ variant: "destructive", title: "Gagal Menyalin Link", description: "Tidak dapat menyalin link status." });
+    });
+  }, [toast]);
+
+  const handleOpenStatusLink = useCallback((accessCode: string) => {
+    const url = `${window.location.origin}/service-status?code=${accessCode}`;
+    window.open(url, '_blank');
+  }, []);
   
   const getStatusBadge = (status: ServiceJob['status']): React.ReactNode => {
     let variant: "default" | "secondary" | "destructive" | "outline" = "default";
@@ -257,7 +271,7 @@ export default function SchedulePage() {
                   </div>
                 )}
               </CardHeader>
-              <CardContent className="space-y-2 text-sm flex-grow pb-4">
+              <CardContent className="space-y-3 text-sm flex-grow pb-4">
                 <div>
                   <Label className="text-xs font-medium text-muted-foreground">Keluhan/Permintaan:</Label>
                   <p className="whitespace-pre-wrap text-foreground text-xs leading-relaxed max-h-20 overflow-y-auto p-1 bg-muted/30 rounded-sm">{job.serviceRequest || "-"}</p>
@@ -275,15 +289,25 @@ export default function SchedulePage() {
                   </div>
                 )}
                 <div>
-                  <Label className="text-xs font-medium text-muted-foreground">Kode Akses Pelanggan:</Label>
+                  <Label className="text-xs font-medium text-muted-foreground">Akses Pelanggan:</Label>
                   <div className="flex items-center gap-1 mt-0.5">
-                    <p className="text-xs font-mono bg-muted px-1.5 py-0.5 rounded text-accent-foreground">{job.accessCode}</p>
+                    <p className="text-xs font-mono bg-muted px-1.5 py-0.5 rounded text-accent-foreground">
+                      Kode: {job.accessCode}
+                    </p>
                     <Button variant="ghost" size="icon" className="h-6 w-6" onClick={() => handleCopyAccessCode(job.accessCode)} title="Salin Kode Akses">
                       <Copy className="h-3 w-3"/>
                     </Button>
                   </div>
-                   <p className="text-xs text-muted-foreground/70 mt-0.5">
-                      (Untuk pelanggan cek status di halaman cek servis)
+                  <div className="mt-1.5 flex flex-col sm:flex-row gap-1.5">
+                    <Button variant="outline" size="sm" className="flex-1 text-xs" onClick={() => handleCopyStatusLink(job.accessCode)}>
+                      <ClipboardCopy className="mr-1 h-3 w-3" /> Salin Link
+                    </Button>
+                    <Button variant="outline" size="sm" className="flex-1 text-xs" onClick={() => handleOpenStatusLink(job.accessCode)}>
+                      <ExternalLink className="mr-1 h-3 w-3" /> Buka Link
+                    </Button>
+                  </div>
+                   <p className="text-xs text-muted-foreground/70 mt-1">
+                      Bagikan link atau kode di atas ke pelanggan.
                    </p>
                 </div>
                  <p className="text-xs text-muted-foreground/70 pt-1">Dibuat: {format(new Date(job.createdAt), "dd/MM/yy HH:mm")}</p>
