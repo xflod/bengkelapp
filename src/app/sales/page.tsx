@@ -10,7 +10,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { useToast } from "@/hooks/use-toast";
 import type { Product, SaleItem } from "@/lib/types";
-import { Search, Camera, PlusCircle, MinusCircle, Trash2, CreditCard, ShoppingCart, XCircle, HandCoins, Landmark, Download, Share2, Printer } from "lucide-react";
+import { Search, Camera, PlusCircle, MinusCircle, Trash2, CreditCard, ShoppingCart, XCircle, HandCoins, Landmark, Download, Share2, Percent } from "lucide-react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter, DialogClose } from "@/components/ui/dialog";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Label } from "@/components/ui/label";
@@ -35,6 +35,8 @@ interface ReceiptDetails {
   date: string;
   items: SaleItem[];
   subtotal: number;
+  discount: number;
+  finalTotal: number;
   paymentMethod: 'Tunai' | 'Transfer';
   cashReceived?: number;
   changeCalculated?: number;
@@ -57,6 +59,7 @@ export default function SalesPage() {
   const [isPaymentDialogOpen, setIsPaymentDialogOpen] = React.useState(false);
   const [paymentMethodTab, setPaymentMethodTab] = React.useState<'cash' | 'transfer'>('cash');
   const [cashReceived, setCashReceived] = React.useState("");
+  const [discountAmount, setDiscountAmount] = React.useState("");
   const [changeCalculated, setChangeCalculated] = React.useState(0);
 
   const [receiptDetails, setReceiptDetails] = React.useState<ReceiptDetails | null>(null);
@@ -168,6 +171,19 @@ export default function SalesPage() {
   const calculateSubtotal = React.useCallback(() => {
     return cart.reduce((total, item) => total + item.totalPrice, 0);
   }, [cart]);
+  
+  const parsedDiscount = React.useMemo(() => {
+    const discount = parseFloat(discountAmount);
+    return isNaN(discount) || discount < 0 ? 0 : discount;
+  }, [discountAmount]);
+
+  const calculateFinalTotal = React.useCallback(() => {
+    const subtotal = calculateSubtotal();
+    // Cap discount at subtotal value
+    const actualDiscount = Math.min(parsedDiscount, subtotal);
+    return Math.max(0, subtotal - actualDiscount);
+  }, [calculateSubtotal, parsedDiscount]);
+
 
   const openPaymentDialog = () => {
     if (cart.length === 0) {
@@ -175,14 +191,13 @@ export default function SalesPage() {
       return;
     }
     setCashReceived("");
+    // setDiscountAmount(""); // Keep discount if user reopens dialog for same cart
     setChangeCalculated(0);
     setPaymentMethodTab('cash');
     setIsPaymentDialogOpen(true);
   };
   
   const handleBarcodeScanned = (barcode: string) => {
-    // Simulate barcode scanning. In a real app, integrate a barcode scanning library.
-    // For testing, you can type "BARCODE123" into the search input when camera is "open".
     const product = MOCK_PRODUCTS.find(p => p.id.toLowerCase() === barcode.toLowerCase());
     if (product) {
       handleAddToCart(product);
@@ -194,7 +209,6 @@ export default function SalesPage() {
   };
   
   React.useEffect(() => {
-    // This is a simplified simulation for barcode scanning triggered by typing specific keyword
     if (isCameraOpen && searchTerm.toUpperCase().startsWith("BARCODE")) { 
       toast({ title: "Barcode Terdeteksi (Simulasi)", description: `Mencari produk dengan barcode: ${searchTerm}` });
       handleBarcodeScanned(searchTerm);
@@ -203,14 +217,14 @@ export default function SalesPage() {
 
 
   React.useEffect(() => {
-    const subtotal = calculateSubtotal();
+    const finalTotal = calculateFinalTotal();
     const received = parseFloat(cashReceived) || 0;
-    if (paymentMethodTab === 'cash' && received >= subtotal) {
-      setChangeCalculated(received - subtotal);
+    if (paymentMethodTab === 'cash' && received >= finalTotal) {
+      setChangeCalculated(received - finalTotal);
     } else if (paymentMethodTab === 'cash') {
       setChangeCalculated(0); 
     }
-  }, [cashReceived, paymentMethodTab, calculateSubtotal]);
+  }, [cashReceived, paymentMethodTab, calculateFinalTotal]);
 
   const handlePresetCash = (amount: number) => {
     setCashReceived(String(amount));
@@ -218,34 +232,40 @@ export default function SalesPage() {
 
   const completeTransaction = (paymentType: 'Tunai' | 'Transfer', details: string) => {
     const currentSubtotal = calculateSubtotal();
+    const currentFinalTotal = calculateFinalTotal();
     const currentCashReceived = parseFloat(cashReceived) || 0;
-    const currentChangeCalculated = paymentType === 'Tunai' ? Math.max(0, currentCashReceived - currentSubtotal) : 0;
+    const currentChangeCalculated = paymentType === 'Tunai' ? Math.max(0, currentCashReceived - currentFinalTotal) : 0;
+    const actualDiscount = Math.min(parsedDiscount, currentSubtotal);
+
 
     const newReceipt: ReceiptDetails = {
       transactionId: `INV-${Date.now()}`,
       date: format(new Date(), "dd MMMM yyyy, HH:mm", { locale: localeID }),
       items: [...cart],
       subtotal: currentSubtotal,
+      discount: actualDiscount,
+      finalTotal: currentFinalTotal,
       paymentMethod: paymentType,
       cashReceived: paymentType === 'Tunai' ? currentCashReceived : undefined,
       changeCalculated: paymentType === 'Tunai' ? currentChangeCalculated : undefined,
-      customerName: "Pelanggan" // Placeholder, can be expanded
+      customerName: "Pelanggan" 
     };
     setReceiptDetails(newReceipt);
 
     toast({ title: "Transaksi Berhasil", description: `${details}. Nota tersedia.` });
     setCart([]);
     setSearchTerm("");
+    setDiscountAmount("");
     setIsPaymentDialogOpen(false);
     setCashReceived("");
     setChangeCalculated(0);
-    setIsReceiptModalOpen(true); // Open receipt modal
+    setIsReceiptModalOpen(true); 
   }
 
   const confirmCashPayment = () => {
-    const subtotal = calculateSubtotal();
+    const finalTotal = calculateFinalTotal();
     const received = parseFloat(cashReceived) || 0;
-    if (received < subtotal) {
+    if (received < finalTotal) {
       toast({ variant: "destructive", title: "Uang Kurang", description: "Jumlah uang yang diterima kurang dari total belanja." });
       return;
     }
@@ -289,7 +309,11 @@ export default function SalesPage() {
       message += `  Rp ${item.unitPrice.toLocaleString()} x ${item.quantity} = Rp ${item.totalPrice.toLocaleString()}\n`;
     });
     message += `------------------------------------\n`;
-    message += `*Total Belanja: Rp ${receiptDetails.subtotal.toLocaleString()}*\n`;
+    message += `Subtotal: Rp ${receiptDetails.subtotal.toLocaleString()}\n`;
+    if (receiptDetails.discount > 0) {
+      message += `Diskon: Rp ${receiptDetails.discount.toLocaleString()}\n`;
+    }
+    message += `*Total Bayar: Rp ${receiptDetails.finalTotal.toLocaleString()}*\n`;
     message += `Metode Pembayaran: ${receiptDetails.paymentMethod}\n`;
     if (receiptDetails.paymentMethod === 'Tunai') {
       message += `Uang Diterima: Rp ${receiptDetails.cashReceived?.toLocaleString() || 0}\n`;
@@ -305,7 +329,10 @@ export default function SalesPage() {
   };
 
 
-  const subtotal = calculateSubtotal();
+  const subtotalForCart = calculateSubtotal();
+  const finalTotalForPayment = calculateFinalTotal();
+  const actualDiscountApplied = Math.min(parsedDiscount, subtotalForCart);
+
 
   return (
     <div className="space-y-6">
@@ -319,7 +346,7 @@ export default function SalesPage() {
             disabled={cart.length === 0}
           >
             <CreditCard className="mr-2 h-4 w-4" />
-            Bayar (Rp {subtotal.toLocaleString()})
+            Bayar (Rp {finalTotalForPayment.toLocaleString()})
           </Button>
         }
       />
@@ -469,9 +496,19 @@ export default function SalesPage() {
             </CardContent>
             {cart.length > 0 && (
               <CardFooter className="flex flex-col space-y-2 pt-4 border-t">
+                 <div className="flex justify-between w-full text-md">
+                  <span>Subtotal:</span>
+                  <span className="whitespace-nowrap">Rp {subtotalForCart.toLocaleString()}</span>
+                </div>
+                {parsedDiscount > 0 && (
+                  <div className="flex justify-between w-full text-md text-green-600">
+                    <span>Diskon:</span>
+                    <span className="whitespace-nowrap">- Rp {actualDiscountApplied.toLocaleString()}</span>
+                  </div>
+                )}
                 <div className="flex justify-between w-full font-semibold text-lg">
                   <span>Total Akhir:</span>
-                  <span className="whitespace-nowrap">Rp {subtotal.toLocaleString()}</span>
+                  <span className="whitespace-nowrap">Rp {finalTotalForPayment.toLocaleString()}</span>
                 </div>
               </CardFooter>
             )}
@@ -484,11 +521,39 @@ export default function SalesPage() {
           <DialogHeader>
             <DialogTitle>Proses Pembayaran</DialogTitle>
             <DialogDescription>
-              Total Belanja: <span className="font-semibold whitespace-nowrap">Rp {subtotal.toLocaleString()}</span>
+              Subtotal: <span className="font-semibold whitespace-nowrap">Rp {subtotalForCart.toLocaleString()}</span>
+              {parsedDiscount > 0 && (
+                <><br/>Diskon: <span className="font-semibold whitespace-nowrap text-green-600">- Rp {actualDiscountApplied.toLocaleString()}</span></>
+              )}
+              <br/>Total Belanja: <span className="font-bold whitespace-nowrap text-lg">Rp {finalTotalForPayment.toLocaleString()}</span>
             </DialogDescription>
           </DialogHeader>
           
-          <Tabs value={paymentMethodTab} onValueChange={(value) => setPaymentMethodTab(value as 'cash' | 'transfer')} className="w-full">
+          <div className="space-y-2 pt-2">
+              <Label htmlFor="discountAmount">Diskon (Rp)</Label>
+              <div className="relative">
+                 <Percent className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                <Input 
+                  id="discountAmount" 
+                  type="number" 
+                  value={discountAmount}
+                  onChange={(e) => {
+                    const value = e.target.value;
+                    const numericValue = parseFloat(value);
+                    if (value === "" || (numericValue >= 0 && numericValue <= subtotalForCart) ) {
+                       setDiscountAmount(value);
+                    } else if (numericValue > subtotalForCart) {
+                       setDiscountAmount(subtotalForCart.toString());
+                       toast({title: "Info", description: "Diskon tidak boleh melebihi subtotal."});
+                    }
+                  }}
+                  placeholder="e.g. 5000"
+                  className="pl-10 text-base w-full"
+                />
+              </div>
+          </div>
+
+          <Tabs value={paymentMethodTab} onValueChange={(value) => setPaymentMethodTab(value as 'cash' | 'transfer')} className="w-full pt-2">
             <TabsList className="grid w-full grid-cols-2">
               <TabsTrigger value="cash"><HandCoins className="mr-2 h-4 w-4" />Tunai</TabsTrigger>
               <TabsTrigger value="transfer"><Landmark className="mr-2 h-4 w-4" />Transfer</TabsTrigger>
@@ -506,31 +571,31 @@ export default function SalesPage() {
                 />
               </div>
               <div className="flex flex-wrap gap-2">
-                <Button variant="outline" onClick={() => handlePresetCash(subtotal)} className="flex-1 text-xs min-w-[80px]">Uang Pas</Button>
+                <Button variant="outline" onClick={() => handlePresetCash(finalTotalForPayment)} className="flex-1 text-xs min-w-[80px]">Uang Pas</Button>
                 <Button variant="outline" onClick={() => handlePresetCash(50000)} className="flex-1 text-xs min-w-[80px]">Rp 50rb</Button>
                 <Button variant="outline" onClick={() => handlePresetCash(100000)} className="flex-1 text-xs min-w-[80px]">Rp 100rb</Button>
               </div>
                <div className="space-y-1 text-right">
-                 <p className="text-sm whitespace-nowrap">Total: Rp {subtotal.toLocaleString()}</p>
-                 <p className="text-sm whitespace-nowrap">Dibayar: Rp {(parseFloat(cashReceived) || 0).toLocaleString()}</p>
+                 <p className="text-sm whitespace-nowrap">Total Bayar: Rp {finalTotalForPayment.toLocaleString()}</p>
+                 <p className="text-sm whitespace-nowrap">Diterima: Rp {(parseFloat(cashReceived) || 0).toLocaleString()}</p>
                 <p className="text-lg font-semibold whitespace-nowrap">
                   Kembali: Rp {changeCalculated >= 0 ? changeCalculated.toLocaleString() : '0'}
                 </p>
-                {(parseFloat(cashReceived) || 0) < subtotal && cashReceived !== "" && (
+                {(parseFloat(cashReceived) || 0) < finalTotalForPayment && cashReceived !== "" && (
                   <p className="text-sm text-destructive">Uang tunai yang dimasukkan kurang.</p>
                 )}
               </div>
               <Button 
                 onClick={confirmCashPayment} 
                 className="w-full bg-primary hover:bg-primary/90 text-primary-foreground"
-                disabled={(parseFloat(cashReceived) || 0) < subtotal}
+                disabled={(parseFloat(cashReceived) || 0) < finalTotalForPayment}
               >
                 Konfirmasi Pembayaran Tunai
               </Button>
             </TabsContent>
             <TabsContent value="transfer" className="space-y-4 pt-4">
               <p className="text-sm text-muted-foreground">
-                Silakan lakukan transfer sejumlah <span className="font-semibold text-foreground whitespace-nowrap">Rp {subtotal.toLocaleString()}</span> ke rekening berikut:
+                Silakan lakukan transfer sejumlah <span className="font-semibold text-foreground whitespace-nowrap">Rp {finalTotalForPayment.toLocaleString()}</span> ke rekening berikut:
               </p>
               <div className="p-3 bg-muted rounded-md text-sm">
                 <p className="font-medium">Bank XYZ</p>
@@ -597,6 +662,10 @@ export default function SalesPage() {
             <hr className="my-1 border-dashed border-gray-400"/>
             <div className="text-right">
               <p className="whitespace-nowrap">Subtotal: <span className="font-semibold">Rp {receiptDetails?.subtotal.toLocaleString()}</span></p>
+              {receiptDetails && receiptDetails.discount > 0 && (
+                 <p className="whitespace-nowrap">Diskon: <span className="font-semibold">Rp {receiptDetails.discount.toLocaleString()}</span></p>
+              )}
+              <p className="whitespace-nowrap font-bold">Total Bayar: <span className="font-bold">Rp {receiptDetails?.finalTotal.toLocaleString()}</span></p>
               {receiptDetails?.paymentMethod === 'Tunai' && (
                 <>
                   <p className="whitespace-nowrap">Tunai: Rp {receiptDetails?.cashReceived?.toLocaleString()}</p>
@@ -629,4 +698,3 @@ export default function SalesPage() {
     </div>
   );
 }
-
