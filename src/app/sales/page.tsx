@@ -14,7 +14,7 @@ import { Search, Camera, PlusCircle, MinusCircle, Trash2, CreditCard, ShoppingCa
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter, DialogClose } from "@/components/ui/dialog";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Label } from "@/components/ui/label";
-import html2canvas from 'html2canvas';
+import * as HTML2Canvas from 'html2canvas';
 import { format } from 'date-fns';
 import { id as localeID } from 'date-fns/locale';
 
@@ -257,8 +257,8 @@ export default function SalesPage() {
   };
 
   const handleDownloadReceipt = () => {
-    if (receiptRef.current) {
-      html2canvas(receiptRef.current, { scale: 2, backgroundColor: '#ffffff' }).then(canvas => {
+    if (receiptRef.current && HTML2Canvas) {
+      HTML2Canvas.default(receiptRef.current, { scale: 2, backgroundColor: '#ffffff' }).then(canvas => {
         const image = canvas.toDataURL("image/png", 0.8);
         const link = document.createElement('a');
         link.href = image;
@@ -622,4 +622,3 @@ export default function SalesPage() {
     </div>
   );
 }
-
