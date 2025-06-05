@@ -96,7 +96,7 @@ export default function GoodsReceiptPage() {
   const handleOpenReceiptDialog = (order: SupplierOrder) => {
     setSelectedOrder(order);
     const initialDetails: Record<string, { quantityReceivedThisSession: string; actualCostPriceThisSession: string }> = {};
-    const invProds = inventoryProducts; // Use state directly
+    const invProds = inventoryProducts; 
 
     order.items.forEach(item => {
       const productInInventory = invProds.find(p => p.id === item.productId);
@@ -126,57 +126,70 @@ export default function GoodsReceiptPage() {
 
     let newInventory = [...inventoryProducts];
     let updatedOrder = { ...selectedOrder };
-    let allItemsFullyReceivedForThisOrder = true;
+    let sellingPricesAdjusted = false; 
 
-    updatedOrder.items = updatedOrder.items.map(item => {
-      const detail = itemReceiptDetails[item.productId];
-      const qtyReceivedNum = parseInt(detail.quantityReceivedThisSession, 10);
-      const costPriceNum = parseFloat(detail.actualCostPriceThisSession);
+    try {
+      updatedOrder.items = updatedOrder.items.map(item => {
+        const detail = itemReceiptDetails[item.productId];
+        const qtyReceivedNum = parseInt(detail.quantityReceivedThisSession, 10);
+        const costPriceNum = parseFloat(detail.actualCostPriceThisSession);
 
-      if (isNaN(qtyReceivedNum) || qtyReceivedNum < 0) {
-        toast({ variant: "destructive", title: "Jumlah Terima Tidak Valid", description: `Untuk item ${item.productName}, jumlah terima harus angka positif.` });
-        throw new Error("Invalid quantity received"); 
-      }
-      if (isNaN(costPriceNum) || costPriceNum < 0) {
-        toast({ variant: "destructive", title: "Harga Beli Tidak Valid", description: `Untuk item ${item.productName}, harga beli harus angka positif.` });
-        throw new Error("Invalid cost price");
-      }
-      
-      const productIndex = newInventory.findIndex(p => p.id === item.productId);
-      if (productIndex > -1) {
-        newInventory[productIndex] = {
-          ...newInventory[productIndex],
-          stockQuantity: newInventory[productIndex].stockQuantity + qtyReceivedNum,
-          costPrice: costPriceNum,
-          updatedAt: new Date().toISOString(),
+        if (isNaN(qtyReceivedNum) || qtyReceivedNum < 0) {
+          toast({ variant: "destructive", title: "Jumlah Terima Tidak Valid", description: `Untuk item ${item.productName}, jumlah terima harus angka positif.` });
+          throw new Error("Invalid quantity received for " + item.productName); 
+        }
+        if (isNaN(costPriceNum) || costPriceNum < 0) {
+          toast({ variant: "destructive", title: "Harga Beli Tidak Valid", description: `Untuk item ${item.productName}, harga beli harus angka positif.` });
+          throw new Error("Invalid cost price for " + item.productName);
+        }
+        
+        const productIndex = newInventory.findIndex(p => p.id === item.productId);
+        if (productIndex > -1) {
+          const oldCostPrice = newInventory[productIndex].costPrice;
+          const newActualCostPrice = costPriceNum;
+          let currentProductSellingPrices = newInventory[productIndex].sellingPrices;
+
+          if (newActualCostPrice > oldCostPrice) {
+            const costPriceIncrease = newActualCostPrice - oldCostPrice;
+            currentProductSellingPrices = currentProductSellingPrices.map(tier => ({
+              ...tier,
+              price: tier.price + costPriceIncrease,
+            }));
+            sellingPricesAdjusted = true;
+          }
+
+          newInventory[productIndex] = {
+            ...newInventory[productIndex],
+            stockQuantity: (newInventory[productIndex].stockQuantity || 0) + qtyReceivedNum,
+            costPrice: newActualCostPrice,
+            sellingPrices: currentProductSellingPrices,
+            updatedAt: new Date().toISOString(),
+          };
+        }
+
+        const newTotalReceivedForItem = (item.quantityReceived || 0) + qtyReceivedNum;
+        
+        return {
+          ...item,
+          quantityReceived: newTotalReceivedForItem,
+          actualCostPrice: costPriceNum,
         };
-      }
-
-      const newTotalReceivedForItem = (item.quantityReceived || 0) + qtyReceivedNum;
-      if (newTotalReceivedForItem < item.orderQuantity) {
-        allItemsFullyReceivedForThisOrder = false;
-      }
-
-      return {
-        ...item,
-        quantityReceived: newTotalReceivedForItem,
-        actualCostPrice: costPriceNum,
-      };
-    });
+      });
+    } catch (error) {
+      return; 
+    }
     
-    let newOrderStatus: SupplierOrderStatus = 'Sebagian Diterima';
-    if (allItemsFullyReceivedForThisOrder) {
-        newOrderStatus = 'Diterima Lengkap';
-    }
-    // If no items were received in this session, but some were previously, keep 'Sebagian Diterima' unless all are now complete
-    const totalQtyReceivedThisSession = Object.values(itemReceiptDetails).reduce((sum, det) => sum + (parseInt(det.quantityReceivedThisSession, 10) || 0), 0);
-    if (totalQtyReceivedThisSession === 0 && updatedOrder.items.every(i => (i.quantityReceived || 0) > 0 && (i.quantityReceived || 0) < i.orderQuantity)) {
-        // No change in this session, but still partially received
-        newOrderStatus = 'Sebagian Diterima';
-    } else if (totalQtyReceivedThisSession === 0 && updatedOrder.items.every(i => (i.quantityReceived || 0) === 0)) {
-        newOrderStatus = 'Dipesan ke Supplier'; // Back to original if nothing was ever received.
-    }
+    const isOrderComplete = updatedOrder.items.every(item => (item.quantityReceived || 0) >= item.orderQuantity);
+    const isAnyItemReceived = updatedOrder.items.some(item => (item.quantityReceived || 0) > 0);
+    let newOrderStatus: SupplierOrderStatus;
 
+    if (isOrderComplete) {
+      newOrderStatus = 'Diterima Lengkap';
+    } else if (isAnyItemReceived) {
+      newOrderStatus = 'Sebagian Diterima';
+    } else {
+      newOrderStatus = 'Dipesan ke Supplier'; 
+    }
 
     updatedOrder.status = newOrderStatus;
     updatedOrder.invoiceNumber = currentInvoiceNumber;
@@ -188,18 +201,38 @@ export default function GoodsReceiptPage() {
     localStorage.setItem('inventoryProductsBengkelKu', JSON.stringify(newInventory));
 
     const updatedOrdersList = supplierOrdersList.map(o => o.id === updatedOrder.id ? updatedOrder : o);
-    // We need to update the main list, and also potentially remove it from current view if it's now "Diterima Lengkap"
     const stillRelevantOrders = updatedOrdersList.filter(
         order => order.status === 'Dipesan ke Supplier' || order.status === 'Sebagian Diterima'
     );
     setSupplierOrdersList(stillRelevantOrders); 
-    // Save the *full* list of orders (including the updated one which might now be complete)
-    const allCurrentOrders = JSON.parse(localStorage.getItem('supplierOrdersDataBengkelKu') || '[]') as SupplierOrder[];
+    
+    const allCurrentOrdersString = localStorage.getItem('supplierOrdersDataBengkelKu');
+    let allCurrentOrders: SupplierOrder[] = [];
+    if (allCurrentOrdersString) {
+        try {
+            const parsedOrders = JSON.parse(allCurrentOrdersString);
+            if (Array.isArray(parsedOrders)) {
+                allCurrentOrders = parsedOrders;
+            } else {
+                console.warn("supplierOrdersDataBengkelKu from localStorage is not an array. Initializing as empty.");
+            }
+        } catch (e) {
+            console.error("Failed to parse existing supplier orders from localStorage", e);
+        }
+    }
+    
     const allOrdersUpdated = allCurrentOrders.map(o => o.id === updatedOrder.id ? updatedOrder : o);
+    if (!allOrdersUpdated.find(o => o.id === updatedOrder.id)) { // If the order was new and not in allCurrentOrders
+        allOrdersUpdated.push(updatedOrder);
+    }
     localStorage.setItem('supplierOrdersDataBengkelKu', JSON.stringify(allOrdersUpdated));
     
+    let toastDescription = `Stok dan harga modal telah diperbarui. Status order: ${newOrderStatus}.`;
+    if (sellingPricesAdjusted) {
+      toastDescription += " Beberapa harga jual juga telah disesuaikan karena kenaikan harga modal.";
+    }
 
-    toast({ title: "Penerimaan Berhasil Diproses", description: `Stok dan harga modal telah diperbarui. Status order: ${newOrderStatus}.` });
+    toast({ title: "Penerimaan Berhasil Diproses", description: toastDescription });
     setSelectedOrder(null);
   };
 
@@ -283,7 +316,7 @@ export default function GoodsReceiptPage() {
                       <TableCell>{format(new Date(order.orderDate), "dd MMM yyyy, HH:mm", { locale: localeID })}</TableCell>
                       <TableCell>{order.supplierName || '-'}</TableCell>
                       <TableCell className="text-center">
-                        <Badge className={`${getStatusBadgeColor(order.status)} text-white hover:${getStatusBadgeColor(order.status)}`}>{order.status}</Badge>
+                        <Badge variant="default" className={`${getStatusBadgeColor(order.status)} text-white hover:${getStatusBadgeColor(order.status)}`}>{order.status}</Badge>
                       </TableCell>
                       <TableCell className="text-right">
                         <Button onClick={() => handleOpenReceiptDialog(order)} size="sm" className="bg-primary hover:bg-primary/90 text-primary-foreground">
@@ -305,7 +338,7 @@ export default function GoodsReceiptPage() {
             <DialogHeader>
               <DialogTitle>Proses Penerimaan Order: {selectedOrder.id}</DialogTitle>
               <DialogDescription>
-                Supplier: {selectedOrder.supplierName || "N/A"} | Status Saat Ini: <Badge className={`${getStatusBadgeColor(selectedOrder.status)} text-white`}>{selectedOrder.status}</Badge>
+                Supplier: {selectedOrder.supplierName || "N/A"} | Status Saat Ini: <Badge variant="default" className={`${getStatusBadgeColor(selectedOrder.status)} text-white`}>{selectedOrder.status}</Badge>
               </DialogDescription>
             </DialogHeader>
             <div className="flex-grow overflow-y-auto pr-2 space-y-4 py-2">
@@ -344,7 +377,7 @@ export default function GoodsReceiptPage() {
                             onChange={(e) => handleReceiptDetailChange(item.productId, 'quantityReceivedThisSession', e.target.value)}
                             className="w-20 h-8 text-center mx-auto"
                             min="0"
-                            max={remainingToReceive.toString()} // Informational, validation is separate
+                            max={remainingToReceive.toString()} 
                             placeholder="Qty"
                           />
                         </TableCell>
@@ -372,14 +405,7 @@ export default function GoodsReceiptPage() {
               <DialogClose asChild>
                 <Button variant="outline">Batal</Button>
               </DialogClose>
-              <Button onClick={() => {
-                try {
-                  handleConfirmReceipt();
-                } catch (e) {
-                  // Errors are toasted inside handleConfirmReceipt
-                  console.error("Receipt confirmation failed:", e);
-                }
-              }} className="bg-green-600 hover:bg-green-700 text-white">
+              <Button onClick={handleConfirmReceipt} className="bg-green-600 hover:bg-green-700 text-white">
                 <CheckSquare className="mr-2 h-4 w-4" /> Konfirmasi Penerimaan & Update Data
               </Button>
             </DialogFooter>
