@@ -1,5 +1,6 @@
+
 import type { NavItem } from '@/lib/types';
-import { LayoutDashboard, ShoppingCart, CalendarDays, Package, BarChartBig, Users, Truck, Briefcase, ClipboardList, ClipboardCheck } from 'lucide-react';
+import { LayoutDashboard, ShoppingCart, CalendarDays, Package, BarChartBig, Users, Truck, Briefcase, ClipboardList, ClipboardCheck, ShoppingBag } from 'lucide-react';
 
 export const NAV_ITEMS: NavItem[] = [
   {
@@ -38,6 +39,11 @@ export const NAV_ITEMS: NavItem[] = [
     icon: Package,
   },
   {
+    title: 'Order Supplier',
+    href: '/supplier-orders',
+    icon: ShoppingBag,
+  },
+  {
     title: 'Laporan',
     href: '/reports/profit',
     icon: BarChartBig,
@@ -54,3 +60,4 @@ export const NAV_ITEMS: NavItem[] = [
   //   icon: Truck,
   // },
 ];
+

@@ -31,7 +31,6 @@ export interface Product {
   isActive: boolean;
   createdAt: string;
   updatedAt: string;
-  // Optional fields from original generic type, not strictly enforced by inventory's mock data
   supplierId?: string; 
   imageUrl?: string;
 }
@@ -43,6 +42,13 @@ export interface SaleItem {
   quantity: number;
   unitPrice: number;
   totalPrice: number;
+}
+
+export interface SupplierOrderItem {
+  productId: string;
+  productName: string;
+  sku: string;
+  orderQuantity: number;
 }
 
 export interface Sale {
@@ -67,3 +73,4 @@ export interface Appointment {
   status: 'booked' | 'in-progress' | 'completed' | 'cancelled';
   notes?: string;
 }
+
