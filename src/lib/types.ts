@@ -49,7 +49,25 @@ export interface SupplierOrderItem {
   productName: string;
   sku: string;
   orderQuantity: number;
+  // Potentially add costPriceAtOrderTime if needed for audit
 }
+
+export type SupplierOrderStatus = 'Draf Order' | 'Dipesan ke Supplier' | 'Sebagian Diterima' | 'Diterima Lengkap' | 'Dibatalkan';
+
+export interface SupplierOrder {
+  id: string; // e.g., SO-YYYYMMDD-XXXXX
+  orderDate: string; // ISO string
+  items: SupplierOrderItem[];
+  status: SupplierOrderStatus;
+  notes?: string; // Optional notes for the entire order
+  supplierName?: string; // Optional
+  totalOrderQuantity?: number; // Sum of all item quantities
+  // Fields for receiving audit can be added later
+  // e.g., receivedDate, receivedItemsDetail
+  createdAt: string;
+  updatedAt: string;
+}
+
 
 export interface Sale {
   id: string;
@@ -117,4 +135,15 @@ export interface LoanInstallment {
   amountPaid: number;
   notes?: string;
   createdAt: string;
+}
+
+// Type for items received in a supplier order - for audit
+export interface SupplierOrderReceivedItem {
+  productId: string;
+  productName: string; // for display convenience
+  sku: string; // for display convenience
+  quantityOrdered: number;
+  quantityReceived: number;
+  costPriceWhenReceived?: number; // Actual cost when received, per item
+  receivingNotes?: string;
 }
