@@ -9,7 +9,7 @@ import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle }
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { useToast } from "@/hooks/use-toast";
-import type { Product, SaleItem } from "@/lib/types";
+import type { Product, SaleItem, SaleTransactionForReport, ReportSaleItem } from "@/lib/types";
 import { Search, Camera, PlusCircle, MinusCircle, Trash2, CreditCard, ShoppingCart, XCircle, HandCoins, Landmark, Download, Share2, Percent } from "lucide-react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter, DialogClose } from "@/components/ui/dialog";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -19,21 +19,12 @@ import { format } from 'date-fns';
 import { id as localeID } from 'date-fns/locale';
 import { Textarea } from "@/components/ui/textarea";
 
-// Mock Product Data for Service Sales
-const MOCK_PRODUCTS_SERVICE: Product[] = [
-  // Parts
-  { id: 'SKU001', name: 'Oli Mesin SuperX 1L', category: 'part', costPrice: 50000, sellingPrices: [{ tier: 'default', price: 75000 }], stockQuantity: 50, lowStockThreshold: 10, description: "Oli berkualitas tinggi untuk performa maksimal." },
-  { id: 'SKU002', name: 'Kampas Rem Depan YMH', category: 'part', costPrice: 30000, sellingPrices: [{ tier: 'default', price: 45000 }], stockQuantity: 30, lowStockThreshold: 5, description: "Kampas rem original Yamaha." },
-  { id: 'SKU003', name: 'Busi Champion Z9', category: 'part', costPrice: 10000, sellingPrices: [{ tier: 'default', price: 15000 }], stockQuantity: 100, lowStockThreshold: 20, description: "Busi standar untuk berbagai jenis motor." },
-  { id: 'SKU005', name: 'Air Filter Racing Performance', category: 'part', costPrice: 80000, sellingPrices: [{ tier: 'default', price: 120000 }], stockQuantity: 15, lowStockThreshold: 3, description: "Filter udara untuk peningkatan performa." },
-  { id: 'SKU006', name: 'Ban Dalam Swallow 17"', category: 'part', costPrice: 15000, sellingPrices: [{ tier: 'default', price: 25000 }], stockQuantity: 60, lowStockThreshold: 10, description: "Ban dalam ukuran 17 inch." },
-  // Services
-  { id: 'SVC001', name: 'Jasa Ganti Oli Mesin', category: 'service', costPrice: 0, sellingPrices: [{ tier: 'default', price: 20000 }], stockQuantity: 999, lowStockThreshold: 0, description: "Jasa penggantian oli mesin (tidak termasuk oli)." },
-  { id: 'SVC002', name: 'Jasa Pasang Kampas Rem', category: 'service', costPrice: 0, sellingPrices: [{ tier: 'default', price: 25000 }], stockQuantity: 999, lowStockThreshold: 0, description: "Jasa pemasangan kampas rem (per roda)." },
-  { id: 'SVC003', name: 'Servis Rutin Ringan', category: 'service', costPrice: 0, sellingPrices: [{ tier: 'default', price: 100000 }], stockQuantity: 999, lowStockThreshold: 0, description: "Pemeriksaan dan penyetelan ringan (karbu/injection, busi, filter, rantai, dll)." },
-  { id: 'SVC004', name: 'Servis Lengkap + Tune Up', category: 'service', costPrice: 0, sellingPrices: [{ tier: 'default', price: 250000 }], stockQuantity: 999, lowStockThreshold: 0, description: "Servis menyeluruh termasuk pembersihan karburator/injector dan tune up mesin." },
-  { id: 'SVC005', name: 'Jasa Pasang Ban (Luar/Dalam)', category: 'service', costPrice: 0, sellingPrices: [{ tier: 'default', price: 15000 }], stockQuantity: 999, lowStockThreshold: 0, description: "Jasa pemasangan ban luar atau ban dalam (per ban)." },
-  { id: 'BARCODE123SVC', name: 'Item Scan Barcode Test (Service Page)', category: 'part', costPrice: 20000, sellingPrices: [{ tier: 'default', price: 35000 }], stockQuantity: 20, lowStockThreshold: 5, description: "Produk untuk tes barcode scanner di halaman servis." },
+const MOCK_PRODUCTS_SERVICE_DATA: Product[] = [
+  { id: 'SKU001S', sku: 'SKU001S', name: 'Oli Mesin SuperX 1L (Servis)', category: 'Oli & Cairan', costPrice: 50000, sellingPrices: [{ tierName: 'default', price: 75000 }], stockQuantity: 50, lowStockThreshold: 10, description: "Oli berkualitas tinggi.", isActive: true, createdAt: new Date().toISOString(), updatedAt: new Date().toISOString() },
+  { id: 'SKU002S', sku: 'SKU002S', name: 'Kampas Rem Depan YMH (Servis)', category: 'Suku Cadang', costPrice: 30000, sellingPrices: [{ tierName: 'default', price: 45000 }], stockQuantity: 30, lowStockThreshold: 5, description: "Kampas rem original Yamaha.", isActive: true, createdAt: new Date().toISOString(), updatedAt: new Date().toISOString() },
+  { id: 'SVC001', sku: 'SVC001', name: 'Jasa Ganti Oli Mesin', category: 'Jasa', costPrice: 0, sellingPrices: [{ tierName: 'default', price: 20000 }], stockQuantity: 999, lowStockThreshold: 0, description: "Jasa penggantian oli mesin.", isActive: true, createdAt: new Date().toISOString(), updatedAt: new Date().toISOString() },
+  { id: 'SVC003', sku: 'SVC003', name: 'Servis Rutin Ringan', category: 'Jasa', costPrice: 0, sellingPrices: [{ tierName: 'default', price: 100000 }], stockQuantity: 999, lowStockThreshold: 0, description: "Pemeriksaan dan penyetelan ringan.", isActive: true, createdAt: new Date().toISOString(), updatedAt: new Date().toISOString() },
+  { id: 'BARCODE123SVC', sku: 'BARCODE123SVC', name: 'Item Scan Barcode Test (Service Page)', category: 'Lainnya', costPrice: 20000, sellingPrices: [{ tierName: 'default', price: 35000 }], stockQuantity: 20, lowStockThreshold: 5, description: "Produk tes barcode di halaman servis.", isActive: true, createdAt: new Date().toISOString(), updatedAt: new Date().toISOString() },
 ];
 
 interface ReceiptDetails {
@@ -48,6 +39,7 @@ interface ReceiptDetails {
   changeCalculated?: number;
   customerName?: string;
   serviceNotes?: string;
+  receiptTitle?: string;
 }
 
 export default function ServiceSalesPage() {
@@ -55,9 +47,10 @@ export default function ServiceSalesPage() {
   const videoRef = React.useRef<HTMLVideoElement>(null);
   const receiptRef = React.useRef<HTMLDivElement>(null);
   
+  const [inventoryProducts, setInventoryProducts] = React.useState<Product[]>([]);
   const [searchTerm, setSearchTerm] = React.useState("");
   const [cart, setCart] = React.useState<SaleItem[]>([]);
-  const [filteredProducts, setFilteredProducts] = React.useState<Product[]>(MOCK_PRODUCTS_SERVICE);
+  const [filteredProducts, setFilteredProducts] = React.useState<Product[]>([]);
   const [serviceNotes, setServiceNotes] = React.useState("");
   
   const [isCameraOpen, setIsCameraOpen] = React.useState(false);
@@ -72,14 +65,39 @@ export default function ServiceSalesPage() {
 
   const [receiptDetails, setReceiptDetails] = React.useState<ReceiptDetails | null>(null);
   const [isReceiptModalOpen, setIsReceiptModalOpen] = React.useState(false);
+  const [customerName, setCustomerName] = React.useState("Pelanggan Servis");
 
   React.useEffect(() => {
-    const results = MOCK_PRODUCTS_SERVICE.filter(product =>
+    let productsData: Product[] = [];
+    try {
+      const storedInventory = localStorage.getItem('inventoryProductsBengkelKu');
+      if (storedInventory) {
+        const parsed = JSON.parse(storedInventory);
+        if (Array.isArray(parsed)) {
+          productsData = parsed.filter((p: Product) => p.isActive && p.sellingPrices.some(sp => sp.tierName === 'default')); // Assuming default price tier for service sales
+        } else {
+          productsData = MOCK_PRODUCTS_SERVICE_DATA.filter(p => p.isActive && p.sellingPrices.some(sp => sp.tierName === 'default'));
+        }
+      } else {
+         productsData = MOCK_PRODUCTS_SERVICE_DATA.filter(p => p.isActive && p.sellingPrices.some(sp => sp.tierName === 'default'));
+      }
+    } catch (error) {
+      console.error("Error loading inventory from localStorage:", error);
+      productsData = MOCK_PRODUCTS_SERVICE_DATA.filter(p => p.isActive && p.sellingPrices.some(sp => sp.tierName === 'default'));
+      toast({variant: "destructive", title: "Gagal Memuat Inventaris", description: "Menggunakan data contoh untuk servis."})
+    }
+    setInventoryProducts(productsData);
+    setFilteredProducts(productsData);
+  }, [toast]);
+
+
+  React.useEffect(() => {
+    const results = inventoryProducts.filter(product =>
       product.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      product.id.toLowerCase().includes(searchTerm.toLowerCase())
+      product.sku.toLowerCase().includes(searchTerm.toLowerCase())
     );
     setFilteredProducts(results);
-  }, [searchTerm]);
+  }, [searchTerm, inventoryProducts]);
 
   React.useEffect(() => {
     if (isCameraOpen) {
@@ -120,15 +138,16 @@ export default function ServiceSalesPage() {
   }, [isCameraOpen, toast]);
 
   const handleAddToCart = (product: Product) => {
-    if (product.sellingPrices.length === 0) {
-      toast({ variant: "destructive", title: "Harga Tidak Tersedia", description: `Produk ${product.name} tidak memiliki harga jual.` });
+    const defaultPriceInfo = product.sellingPrices.find(p => p.tierName === 'default');
+    if (!defaultPriceInfo) {
+      toast({ variant: "destructive", title: "Harga Tidak Tersedia", description: `Produk ${product.name} tidak memiliki harga jual default.` });
       return;
     }
-    const price = product.sellingPrices[0].price;
+    const price = defaultPriceInfo.price;
     setCart(prevCart => {
       const existingItem = prevCart.find(item => item.productId === product.id);
       if (existingItem) {
-        if (existingItem.quantity < product.stockQuantity || product.category === 'service') {
+        if (product.category === 'Jasa' || existingItem.quantity < product.stockQuantity) {
           return prevCart.map(item =>
             item.productId === product.id ? { ...item, quantity: item.quantity + 1, totalPrice: (item.quantity + 1) * item.unitPrice } : item
           );
@@ -137,8 +156,8 @@ export default function ServiceSalesPage() {
           return prevCart;
         }
       } else {
-         if (1 <= product.stockQuantity || product.category === 'service') {
-          return [...prevCart, { productId: product.id, productName: product.name, quantity: 1, unitPrice: price, totalPrice: price }];
+         if (product.category === 'Jasa' || 1 <= product.stockQuantity) {
+          return [...prevCart, { productId: product.id, productName: product.name, quantity: 1, unitPrice: price, totalPrice: price, category: product.category }];
         } else {
           toast({ variant: "destructive", title: "Stok Habis", description: `Stok ${product.name} telah habis.` });
           return prevCart;
@@ -149,13 +168,17 @@ export default function ServiceSalesPage() {
   };
 
   const handleUpdateQuantity = (productId: string, newQuantity: number) => {
-    const productInCart = MOCK_PRODUCTS_SERVICE.find(p => p.id === productId);
+    const productInCart = inventoryProducts.find(p => p.id === productId);
     if (!productInCart) return;
+
+    const cartItem = cart.find(item => item.productId === productId);
+    if (!cartItem) return;
+
     if (newQuantity <= 0) {
       handleRemoveFromCart(productId);
       return;
     }
-    if (productInCart.category !== 'service' && newQuantity > productInCart.stockQuantity) {
+    if (productInCart.category !== 'Jasa' && newQuantity > productInCart.stockQuantity) {
       toast({ variant: "destructive", title: "Stok Tidak Cukup", description: `Stok ${productInCart.name} hanya tersisa ${productInCart.stockQuantity}.` });
       setCart(prevCart =>
         prevCart.map(item =>
@@ -198,14 +221,13 @@ export default function ServiceSalesPage() {
       return;
     }
     setCashReceived("");
-    // setDiscountAmount(""); // Keep discount if user reopens
     setChangeCalculated(0);
     setPaymentMethodTab('cash');
     setIsPaymentDialogOpen(true);
   };
   
   const handleBarcodeScanned = (barcode: string) => {
-    const product = MOCK_PRODUCTS_SERVICE.find(p => p.id.toLowerCase() === barcode.toLowerCase());
+    const product = inventoryProducts.find(p => p.sku.toLowerCase() === barcode.toLowerCase());
     if (product) {
       handleAddToCart(product);
       setSearchTerm(""); 
@@ -218,9 +240,9 @@ export default function ServiceSalesPage() {
   React.useEffect(() => {
     if (isCameraOpen && searchTerm.toUpperCase().startsWith("BARCODE")) { 
       toast({ title: "Barcode Terdeteksi (Simulasi)", description: `Mencari produk dengan barcode: ${searchTerm}` });
-      handleBarcodeScanned(searchTerm);
+      handleBarcodeScanned(searchTerm.toUpperCase());
     }
-  }, [searchTerm, isCameraOpen]);
+  }, [searchTerm, isCameraOpen, handleBarcodeScanned]);
 
 
   React.useEffect(() => {
@@ -238,15 +260,77 @@ export default function ServiceSalesPage() {
   };
 
   const completeTransaction = (paymentType: 'Tunai' | 'Transfer', details: string) => {
+    const transactionDate = new Date();
+    const transactionId = `INV-SVC-${transactionDate.getTime()}`;
     const currentSubtotal = calculateSubtotal();
     const currentFinalTotal = calculateFinalTotal();
     const currentCashReceived = parseFloat(cashReceived) || 0;
     const currentChangeCalculated = paymentType === 'Tunai' ? Math.max(0, currentCashReceived - currentFinalTotal) : 0;
     const actualDiscount = Math.min(parsedDiscount, currentSubtotal);
 
+    const reportItems: ReportSaleItem[] = cart.map(cartItem => {
+      const productDetails = inventoryProducts.find(p => p.id === cartItem.productId);
+      const costPrice = productDetails?.costPrice || 0;
+      const totalRevenueForItem = cartItem.totalPrice;
+      const totalCOGSForItem = costPrice * cartItem.quantity;
+      return {
+        productId: cartItem.productId,
+        productName: cartItem.productName,
+        sku: productDetails?.sku || 'N/A',
+        category: productDetails?.category || 'Lainnya',
+        quantity: cartItem.quantity,
+        unitPrice: cartItem.unitPrice,
+        costPrice: costPrice,
+        totalRevenue: totalRevenueForItem,
+        totalCOGS: totalCOGSForItem,
+        profit: totalRevenueForItem - totalCOGSForItem,
+      };
+    });
+
+    const transactionForReport: SaleTransactionForReport = {
+      id: transactionId,
+      date: transactionDate.toISOString(),
+      items: reportItems,
+      subtotal: currentSubtotal,
+      discountApplied: actualDiscount,
+      finalAmount: currentFinalTotal,
+      totalCOGS: reportItems.reduce((sum, item) => sum + item.totalCOGS, 0),
+      totalProfit: currentFinalTotal - reportItems.reduce((sum, item) => sum + item.totalCOGS, 0),
+      paymentMethod: paymentType,
+      customerName: customerName || "Pelanggan Servis",
+      serviceNotes: serviceNotes,
+      type: 'Service',
+      createdAt: transactionDate.toISOString(),
+    };
+
+    try {
+      const existingTransactionsString = localStorage.getItem('allSalesTransactionsBengkelKu');
+      const existingTransactions: SaleTransactionForReport[] = existingTransactionsString ? JSON.parse(existingTransactionsString) : [];
+      existingTransactions.push(transactionForReport);
+      localStorage.setItem('allSalesTransactionsBengkelKu', JSON.stringify(existingTransactions));
+    } catch (error) {
+        console.error("Failed to save transaction to localStorage:", error);
+        toast({variant: "destructive", title: "Gagal Menyimpan Transaksi", description: "Laporan mungkin tidak akurat."})
+    }
+
+    // Update stock in inventoryProducts
+    let updatedInventory = [...inventoryProducts];
+    cart.forEach(cartItem => {
+      if (cartItem.category !== 'Jasa') { // Don't decrement stock for services
+        const productIndex = updatedInventory.findIndex(p => p.id === cartItem.productId);
+        if (productIndex > -1) {
+          updatedInventory[productIndex].stockQuantity -= cartItem.quantity;
+          updatedInventory[productIndex].updatedAt = new Date().toISOString();
+        }
+      }
+    });
+    setInventoryProducts(updatedInventory); // Update local state for UI
+    localStorage.setItem('inventoryProductsBengkelKu', JSON.stringify(updatedInventory)); // Update main inventory storage
+
+
     const newReceipt: ReceiptDetails = {
-      transactionId: `INV-SVC-${Date.now()}`,
-      date: format(new Date(), "dd MMMM yyyy, HH:mm", { locale: localeID }),
+      transactionId: transactionId,
+      date: format(transactionDate, "dd MMMM yyyy, HH:mm", { locale: localeID }),
       items: [...cart],
       subtotal: currentSubtotal,
       discount: actualDiscount,
@@ -254,8 +338,9 @@ export default function ServiceSalesPage() {
       paymentMethod: paymentType,
       cashReceived: paymentType === 'Tunai' ? currentCashReceived : undefined,
       changeCalculated: paymentType === 'Tunai' ? currentChangeCalculated : undefined,
-      customerName: "Pelanggan Servis", 
+      customerName: customerName || "Pelanggan Servis", 
       serviceNotes: serviceNotes,
+      receiptTitle: "Nota Jasa & Servis"
     };
     setReceiptDetails(newReceipt);
 
@@ -305,7 +390,7 @@ export default function ServiceSalesPage() {
   const handleShareToWhatsApp = () => {
     if (!receiptDetails) return;
 
-    let message = `*Nota Jasa & Servis BengkelKu*\n\n`;
+    let message = `*${receiptDetails.receiptTitle || 'Nota Jasa & Servis BengkelKu'}*\n\n`;
     message += `ID Transaksi: ${receiptDetails.transactionId}\n`;
     message += `Tanggal: ${receiptDetails.date}\n`;
     if (receiptDetails.customerName) {
@@ -363,6 +448,22 @@ export default function ServiceSalesPage() {
           </Button>
         }
       />
+
+      <Card className="shadow-md">
+        <CardHeader>
+            <CardTitle>Informasi Pelanggan (Opsional)</CardTitle>
+        </CardHeader>
+        <CardContent>
+            <Label htmlFor="customerNameService">Nama Pelanggan</Label>
+            <Input 
+                id="customerNameService"
+                value={customerName}
+                onChange={(e) => setCustomerName(e.target.value)}
+                placeholder="Masukkan nama pelanggan (jika ada)"
+                className="mt-1"
+            />
+        </CardContent>
+      </Card>
 
       <div className="flex flex-col md:flex-row gap-6">
         <div className="md:w-2/3 space-y-4">
@@ -432,15 +533,15 @@ export default function ServiceSalesPage() {
                       {filteredProducts.map((product) => (
                         <TableRow key={product.id}>
                           <TableCell className="font-medium break-words max-w-[150px] sm:max-w-xs">
-                            {product.name} <br/> <span className="text-xs text-muted-foreground">({product.id} - {product.category})</span>
+                            {product.name} <br/> <span className="text-xs text-muted-foreground">({product.sku} - {product.category})</span>
                           </TableCell>
-                          <TableCell className="text-right whitespace-nowrap">Rp {product.sellingPrices[0]?.price.toLocaleString() || 'N/A'}</TableCell>
-                          <TableCell className="text-center">{product.category === 'service' ? 'Jasa' : product.stockQuantity}</TableCell>
+                          <TableCell className="text-right whitespace-nowrap">Rp {product.sellingPrices.find(sp => sp.tierName === 'default')?.price.toLocaleString() || 'N/A'}</TableCell>
+                          <TableCell className="text-center">{product.category === 'Jasa' ? 'Jasa' : product.stockQuantity}</TableCell>
                           <TableCell className="text-right">
                             <Button 
                               size="icon" 
                               onClick={() => handleAddToCart(product)}
-                              disabled={(product.category !== 'service' && product.stockQuantity <= 0) || product.sellingPrices.length === 0}
+                              disabled={(product.category !== 'Jasa' && product.stockQuantity <= 0) || product.sellingPrices.length === 0}
                               className="bg-primary hover:bg-primary/90 text-primary-foreground h-8 w-8"
                               title="Tambah ke Keranjang"
                             >
@@ -650,7 +751,7 @@ export default function ServiceSalesPage() {
       <Dialog open={isReceiptModalOpen} onOpenChange={setIsReceiptModalOpen}>
         <DialogContent className="sm:max-w-sm w-[90vw]">
           <DialogHeader>
-            <DialogTitle>Nota Jasa & Servis</DialogTitle>
+            <DialogTitle>{receiptDetails?.receiptTitle || "Nota Jasa & Servis"}</DialogTitle>
             <DialogDescription>
               ID: {receiptDetails?.transactionId}
             </DialogDescription>
@@ -735,3 +836,4 @@ export default function ServiceSalesPage() {
     </div>
   );
 }
+

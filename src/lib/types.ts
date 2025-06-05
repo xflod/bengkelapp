@@ -36,13 +36,44 @@ export interface Product {
 }
 
 
-export interface SaleItem {
+export interface SaleItem { // Used in POS cart
   productId: string;
   productName: string;
   quantity: number;
-  unitPrice: number;
-  totalPrice: number;
+  unitPrice: number; // Selling price per unit
+  totalPrice: number; // quantity * unitPrice
+  category?: ProductCategory; // Optional, useful for logic
 }
+
+export interface ReportSaleItem { // Stored for reporting
+  productId: string;
+  productName: string;
+  sku: string;
+  category: ProductCategory;
+  quantity: number;
+  unitPrice: number; // Selling price per unit
+  costPrice: number; // Cost price per unit at the time of sale
+  totalRevenue: number; // quantity * unitPrice (effectively)
+  totalCOGS: number; // quantity * costPrice
+  profit: number; // totalRevenue - totalCOGS for this item line
+}
+
+export interface SaleTransactionForReport {
+  id: string; // transactionId from receipt
+  date: string; // ISO string date of transaction
+  items: ReportSaleItem[];
+  subtotal: number; // Sum of (item.unitPrice * item.quantity) before transaction-level discount
+  discountApplied: number; // Actual discount amount for the whole transaction
+  finalAmount: number; // subtotal - discountApplied (what customer paid)
+  totalCOGS: number; // Sum of totalCOGS for all items in this transaction
+  totalProfit: number; // finalAmount - totalCOGS for this transaction
+  paymentMethod: 'Tunai' | 'Transfer';
+  customerName?: string;
+  serviceNotes?: string;
+  type: 'Regular' | 'Partner' | 'Service'; // To differentiate transaction source
+  createdAt: string; // ISO string
+}
+
 
 export interface SupplierOrderItem {
   productId: string;
@@ -71,7 +102,7 @@ export interface SupplierOrder {
 }
 
 
-export interface Sale {
+export interface Sale { // Legacy or simplified Sale, can be deprecated if SaleTransactionForReport is primary
   id: string;
   date: string; 
   customerId?: string;
@@ -166,5 +197,31 @@ export interface AccountPayment {
   amountPaid: number;
   paymentMethod?: string; // e.g., 'Tunai', 'Transfer Bank A', 'QRIS' - optional
   notes?: string; // Optional notes for this specific payment
+  createdAt: string; // ISO string
+}
+
+// Savings Book Types
+export type SavingsGoalStatus = 'Aktif' | 'Tercapai' | 'Dibatalkan';
+
+export interface SavingsGoal {
+  id: string;
+  name: string;
+  targetAmount: number;
+  currentAmount: number;
+  startDate: string; // ISO string
+  targetDate?: string; // ISO string, optional
+  status: SavingsGoalStatus;
+  notes?: string;
+  createdAt: string; // ISO string
+  updatedAt: string; // ISO string
+}
+
+export interface SavingsTransaction {
+  id: string;
+  goalId: string; // Foreign key to SavingsGoal
+  transactionDate: string; // ISO string
+  amount: number; // Can be positive (deposit) or negative (withdrawal, if allowed)
+  type?: 'Setoran' | 'Penarikan'; // Optional, defaults to Setoran
+  notes?: string;
   createdAt: string; // ISO string
 }
