@@ -142,11 +142,11 @@ export default function SupplierOrdersPage() {
       toast({ variant: "destructive", title: "Orderan Kosong", description: "Tambahkan item ke daftar orderan terlebih dahulu." });
       return;
     }
-    let message = "Halo Supplier,\nSaya mau order barang berikut:\n\n";
-    orderItems.forEach(item => {
-      message += `- ${item.productName} (SKU: ${item.sku}) - ${item.orderQuantity} pcs\n`;
+    let message = "Selamat pagi/siang/sore,\n\nDengan hormat,\nKami dari BengkelKu ingin melakukan pemesanan beberapa item berikut:\n\n";
+    orderItems.forEach((item, index) => {
+      message += `${index + 1}. ${item.productName} - ${item.orderQuantity} pcs\n`;
     });
-    message += "\nMohon info ketersediaan dan totalnya.\nTerima kasih.";
+    message += "\nMohon informasikan ketersediaan stok dan total harga untuk pesanan ini.\nAtas perhatian dan kerjasamanya, kami ucapkan terima kasih.\n\nSalam,\nBengkelKu";
     
     const whatsappUrl = `https://api.whatsapp.com/send?text=${encodeURIComponent(message)}`;
     window.open(whatsappUrl, '_blank');
