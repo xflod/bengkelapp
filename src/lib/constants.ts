@@ -44,6 +44,11 @@ export const NAV_ITEMS: NavItem[] = [
     icon: ShoppingBag,
   },
   {
+    title: 'Karyawan',
+    href: '/employees',
+    icon: Users,
+  },
+  {
     title: 'Laporan',
     href: '/reports/profit',
     icon: BarChartBig,
@@ -60,4 +65,3 @@ export const NAV_ITEMS: NavItem[] = [
   //   icon: Truck,
   // },
 ];
-

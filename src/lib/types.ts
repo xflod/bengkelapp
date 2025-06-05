@@ -74,3 +74,22 @@ export interface Appointment {
   notes?: string;
 }
 
+// Employee Management Types
+export type EmployeeStatus = 'Aktif' | 'Tidak Aktif' | 'Resign';
+export type PayrollFrequency = 'Harian' | 'Mingguan' | 'Bulanan';
+
+export interface Employee {
+  id: string;
+  name: string;
+  position: string;
+  joinDate: string; // ISO Date string
+  phone?: string;
+  address?: string;
+  status: EmployeeStatus;
+  payrollFrequency: PayrollFrequency;
+  baseSalary: number;
+  loanNotes?: string; 
+  performanceNotes?: string;
+  createdAt: string;
+  updatedAt: string;
+}
