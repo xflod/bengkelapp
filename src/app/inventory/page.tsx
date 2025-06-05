@@ -14,17 +14,17 @@ import { Switch } from "@/components/ui/switch";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { Badge } from "@/components/ui/badge";
 import { useToast } from "@/hooks/use-toast";
-import type { Product, SellingPriceTier } from "@/lib/types"; // Pastikan Product dan SellingPriceTier diimpor
+import type { Product, SellingPriceTier, ProductCategory, PriceTierName } from "@/lib/types";
 import { PackagePlus, Edit3, Trash2, Search, Filter, AlertTriangle, ArchiveRestore, CheckCircle2, XCircle } from "lucide-react";
 import { Label } from '@/components/ui/label';
 
-// Mock data if localStorage is empty or invalid - Detailed for inventory management
+// Mock data with 'servicePackage' tier
 const MOCK_PRODUCTS_INVENTORY_DETAILED: Product[] = [
-  { id: 'PROD-1690000001', sku: 'SKU-OLI-001', name: 'Oli Mesin SuperX 1L', category: 'Oli & Cairan', costPrice: 50000, sellingPrices: [{ tierName: 'default', price: 75000 }, { tierName: 'partner', price: 65000 }], stockQuantity: 50, lowStockThreshold: 10, description: "Oli berkualitas tinggi untuk performa maksimal.", isActive: true, createdAt: new Date().toISOString(), updatedAt: new Date().toISOString() },
-  { id: 'PROD-1690000002', sku: 'SKU-PART-001', name: 'Kampas Rem Depan YMH', category: 'Suku Cadang', costPrice: 30000, sellingPrices: [{ tierName: 'default', price: 45000 }], stockQuantity: 30, lowStockThreshold: 5, description: "Kampas rem original Yamaha.", isActive: true, createdAt: new Date().toISOString(), updatedAt: new Date().toISOString() },
-  { id: 'PROD-1690000003', sku: 'SKU-PART-002', name: 'Busi Champion Z9', category: 'Suku Cadang', costPrice: 10000, sellingPrices: [{ tierName: 'default', price: 15000 }, { tierName: 'partner', price: 12000 }], stockQuantity: 0, lowStockThreshold: 20, description: "Busi standar untuk berbagai jenis motor.", isActive: true, createdAt: new Date().toISOString(), updatedAt: new Date().toISOString() },
+  { id: 'PROD-1690000001', sku: 'SKU-OLI-001', name: 'Oli Mesin SuperX 1L', category: 'Oli & Cairan', costPrice: 50000, sellingPrices: [{ tierName: 'default', price: 75000 }, { tierName: 'partner', price: 65000 }, { tierName: 'servicePackage', price: 90000 }], stockQuantity: 50, lowStockThreshold: 10, description: "Oli berkualitas tinggi untuk performa maksimal.", isActive: true, createdAt: new Date().toISOString(), updatedAt: new Date().toISOString() },
+  { id: 'PROD-1690000002', sku: 'SKU-PART-001', name: 'Kampas Rem Depan YMH', category: 'Suku Cadang', costPrice: 30000, sellingPrices: [{ tierName: 'default', price: 45000 }, { tierName: 'servicePackage', price: 60000 }], stockQuantity: 30, lowStockThreshold: 5, description: "Kampas rem original Yamaha.", isActive: true, createdAt: new Date().toISOString(), updatedAt: new Date().toISOString() },
+  { id: 'PROD-1690000003', sku: 'SKU-PART-002', name: 'Busi Champion Z9', category: 'Suku Cadang', costPrice: 10000, sellingPrices: [{ tierName: 'default', price: 15000 }, { tierName: 'partner', price: 12000 }, { tierName: 'servicePackage', price: 25000 }], stockQuantity: 0, lowStockThreshold: 20, description: "Busi standar untuk berbagai jenis motor.", isActive: true, createdAt: new Date().toISOString(), updatedAt: new Date().toISOString() },
   { id: 'PROD-1690000004', sku: 'SKU-JASA-001', name: 'Servis Rutin Ringan', category: 'Jasa', costPrice: 0, sellingPrices: [{ tierName: 'default', price: 100000 }], stockQuantity: 999, lowStockThreshold: 0, description: "Pemeriksaan dan penyetelan ringan.", isActive: true, createdAt: new Date().toISOString(), updatedAt: new Date().toISOString() },
-  { id: 'PROD-1690000005', sku: 'SKU-AKSES-001', name: 'Handle Grip Racing CNC', category: 'Aksesoris', costPrice: 75000, sellingPrices: [{ tierName: 'default', price: 120000 }, { tierName: 'partner', price: 100000 }], stockQuantity: 5, lowStockThreshold: 3, description: "Handle grip CNC model racing, anti slip.", isActive: false, createdAt: new Date().toISOString(), updatedAt: new Date().toISOString() },
+  { id: 'PROD-1690000005', sku: 'SKU-AKSES-001', name: 'Handle Grip Racing CNC', category: 'Aksesoris', costPrice: 75000, sellingPrices: [{ tierName: 'default', price: 120000 }, { tierName: 'partner', price: 100000 }, { tierName: 'servicePackage', price: 140000 }], stockQuantity: 5, lowStockThreshold: 3, description: "Handle grip CNC model racing, anti slip.", isActive: false, createdAt: new Date().toISOString(), updatedAt: new Date().toISOString() },
 ];
 
 
@@ -41,10 +41,11 @@ export default function InventoryPage() {
   // Form states
   const [sku, setSku] = useState('');
   const [productName, setProductName] = useState('');
-  const [category, setCategory] = useState<Product['category'] | null>(null);
+  const [category, setCategory] = useState<ProductCategory | null>(null);
   const [costPrice, setCostPrice] = useState<string | number>('');
   const [sellingPriceDefault, setSellingPriceDefault] = useState<string | number>('');
   const [sellingPricePartner, setSellingPricePartner] = useState<string | number>('');
+  const [sellingPriceServicePackage, setSellingPriceServicePackage] = useState<string | number>('');
   const [stockQuantity, setStockQuantity] = useState<string | number>('');
   const [lowStockThreshold, setLowStockThreshold] = useState<string | number>('');
   const [description, setDescription] = useState('');
@@ -75,11 +76,11 @@ export default function InventoryPage() {
       toast({ variant: "destructive", title: "Gagal Memuat Data Lokal", description: "Memuat data contoh. Kesalahan: " + (error as Error).message });
     }
     setIsLoading(false);
-  }, []); // Corrected: Empty dependency array to run only on mount
+  }, [toast]); // Corrected: Added toast to dependency array as it's used inside
 
   useEffect(() => {
     try {
-      if (!isLoading) { // Only save if not initial loading phase
+      if (!isLoading) { 
         localStorage.setItem('inventoryProductsBengkelKu', JSON.stringify(products));
       }
     } catch (error) {
@@ -97,6 +98,7 @@ export default function InventoryPage() {
     setCostPrice('');
     setSellingPriceDefault('');
     setSellingPricePartner('');
+    setSellingPriceServicePackage('');
     setStockQuantity('');
     setLowStockThreshold('');
     setDescription('');
@@ -112,13 +114,13 @@ export default function InventoryPage() {
       setCostPrice(product.costPrice);
       setSellingPriceDefault(product.sellingPrices.find(p => p.tierName === 'default')?.price || '');
       setSellingPricePartner(product.sellingPrices.find(p => p.tierName === 'partner')?.price || '');
+      setSellingPriceServicePackage(product.sellingPrices.find(p => p.tierName === 'servicePackage')?.price || '');
       setStockQuantity(product.category === 'Jasa' ? '' : product.stockQuantity);
       setLowStockThreshold(product.category === 'Jasa' ? '' : product.lowStockThreshold);
       setDescription(product.description || '');
       setIsActive(product.isActive);
     } else {
       resetFormFields();
-      // Auto-generate SKU for new product
       setSku(`SKU-${Date.now().toString().slice(-5)}-${Math.random().toString(36).substring(2, 4).toUpperCase()}`);
     }
     setIsFormDialogOpen(true);
@@ -145,10 +147,10 @@ export default function InventoryPage() {
     let parsedCostPrice: number;
     let parsedSellingPriceDefault: number;
     let parsedSellingPricePartner: number | undefined = undefined;
+    let parsedSellingPriceServicePackage: number | undefined = undefined;
     let parsedStockQuantity: number;
     let parsedLowStockThreshold: number;
 
-    // Validate and parse prices
     if (String(costPrice).trim() === '' || isNaN(parseFloat(String(costPrice)))) {
         toast({ variant: "destructive", title: "Data Tidak Valid", description: "Harga Modal wajib diisi dengan angka yang valid." });
         return;
@@ -156,7 +158,7 @@ export default function InventoryPage() {
     parsedCostPrice = parseFloat(String(costPrice));
 
     if (String(sellingPriceDefault).trim() === '' || isNaN(parseFloat(String(sellingPriceDefault)))) {
-        toast({ variant: "destructive", title: "Data Tidak Valid", description: "Harga Jual Default wajib diisi dengan angka yang valid." });
+        toast({ variant: "destructive", title: "Data Tidak Valid", description: "Harga Jual Saja wajib diisi dengan angka yang valid." });
         return;
     }
     parsedSellingPriceDefault = parseFloat(String(sellingPriceDefault));
@@ -168,8 +170,15 @@ export default function InventoryPage() {
         }
         parsedSellingPricePartner = parseFloat(String(sellingPricePartner));
     }
+
+    if (category !== 'Jasa' && String(sellingPriceServicePackage).trim() !== '') {
+        if (isNaN(parseFloat(String(sellingPriceServicePackage)))) {
+            toast({ variant: "destructive", title: "Data Tidak Valid", description: "Harga Jual + Jasa Pasang, jika diisi, harus berupa angka yang valid." });
+            return;
+        }
+        parsedSellingPriceServicePackage = parseFloat(String(sellingPriceServicePackage));
+    }
     
-    // Validate stock for non-Jasa items
     if (category !== 'Jasa') {
       if (String(stockQuantity).trim() === '' || isNaN(parseInt(String(stockQuantity), 10))) {
         toast({ variant: "destructive", title: "Data Tidak Valid", description: "Stok Saat Ini wajib diisi dengan angka yang valid untuk item non-jasa." });
@@ -183,12 +192,11 @@ export default function InventoryPage() {
       }
       parsedLowStockThreshold = parseInt(String(lowStockThreshold), 10);
     } else {
-      parsedStockQuantity = 999; // Default for Jasa
-      parsedLowStockThreshold = 0; // Default for Jasa
+      parsedStockQuantity = 999; 
+      parsedLowStockThreshold = 0; 
     }
 
-    // Validate for negative values
-    if (parsedCostPrice < 0 || parsedSellingPriceDefault < 0 || (parsedSellingPricePartner !== undefined && parsedSellingPricePartner < 0)) {
+    if (parsedCostPrice < 0 || parsedSellingPriceDefault < 0 || (parsedSellingPricePartner !== undefined && parsedSellingPricePartner < 0) || (parsedSellingPriceServicePackage !== undefined && parsedSellingPriceServicePackage < 0)) {
         toast({ variant: "destructive", title: "Data Tidak Valid", description: "Harga tidak boleh negatif." });
         return;
     }
@@ -199,20 +207,26 @@ export default function InventoryPage() {
 
     const now = new Date().toISOString();
     const productToSaveId = editingProduct ? editingProduct.id : `PROD-${Date.now()}-${Math.random().toString(36).substring(2, 7).toUpperCase()}`;
-    
     const finalSkuForSave = editingProduct ? editingProduct.sku : currentSku;
+
+    const sellingPricesArray: SellingPriceTier[] = [
+      { tierName: 'default', price: parsedSellingPriceDefault },
+    ];
+    if (parsedSellingPricePartner !== undefined) {
+      sellingPricesArray.push({ tierName: 'partner', price: parsedSellingPricePartner });
+    }
+    if (category !== 'Jasa' && parsedSellingPriceServicePackage !== undefined) {
+      sellingPricesArray.push({ tierName: 'servicePackage', price: parsedSellingPriceServicePackage });
+    }
 
 
     const newProductData: Product = {
       id: productToSaveId,
       sku: finalSkuForSave,
       name: currentProductName,
-      category: category as Product['category'], 
+      category: category as ProductCategory, 
       costPrice: parsedCostPrice,
-      sellingPrices: [
-        { tierName: 'default', price: parsedSellingPriceDefault },
-        ...(parsedSellingPricePartner !== undefined ? [{ tierName: 'partner' as 'partner', price: parsedSellingPricePartner }] : [])
-      ],
+      sellingPrices: sellingPricesArray,
       stockQuantity: parsedStockQuantity,
       lowStockThreshold: parsedLowStockThreshold,
       description: currentDescription,
@@ -225,7 +239,6 @@ export default function InventoryPage() {
       setProducts(prevProducts => prevProducts.map(p => p.id === editingProduct.id ? newProductData : p));
       toast({ title: "Produk Diperbarui", description: `${newProductData.name} telah diperbarui.` });
     } else {
-      // Check if SKU already exists for a new product
       if (products.some(p => p.sku.toUpperCase() === finalSkuForSave.toUpperCase())) {
           toast({ variant: "destructive", title: "SKU Duplikat", description: `SKU ${finalSkuForSave} sudah ada. Mohon gunakan SKU yang unik.` });
           return;
@@ -272,16 +285,14 @@ export default function InventoryPage() {
         case 'allActive':
              tempProducts = tempProducts.filter(p => p.isActive);
             break;
-        case 'all': // 'all' shows everything, active or inactive, unless search term filters it
-            // No additional filtering based on active status for 'all'
+        case 'all': 
             break;
     }
-    // Default sort: non-active items at the bottom, then by update time.
     return tempProducts.sort((a, b) => {
         if (a.isActive === b.isActive) {
             return new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime();
         }
-        return a.isActive ? -1 : 1; // Active items first
+        return a.isActive ? -1 : 1; 
     });
 }, [products, searchTerm, activeFilter]);
 
@@ -364,8 +375,9 @@ export default function InventoryPage() {
                     <TableHead className="min-w-[200px]">Nama Item</TableHead>
                     <TableHead className="min-w-[120px]">Kategori</TableHead>
                     <TableHead className="text-right min-w-[120px]">Hrg. Modal</TableHead>
-                    <TableHead className="text-right min-w-[120px]">Hrg. Default</TableHead>
+                    <TableHead className="text-right min-w-[120px]">Hrg. Jual Saja</TableHead>
                     <TableHead className="text-right min-w-[120px]">Hrg. Partner</TableHead>
+                    <TableHead className="text-right min-w-[140px]">Hrg. Jual + Pasang</TableHead>
                     <TableHead className="text-center min-w-[80px]">Stok</TableHead>
                     <TableHead className="text-center min-w-[80px]">Stok Min.</TableHead>
                     <TableHead className="text-center w-[120px]">Aksi</TableHead>
@@ -393,6 +405,9 @@ export default function InventoryPage() {
                       <TableCell className="text-right whitespace-nowrap">Rp {product.sellingPrices.find(p => p.tierName === 'default')?.price.toLocaleString() || '-'}</TableCell>
                       <TableCell className="text-right whitespace-nowrap">
                         {product.sellingPrices.find(p => p.tierName === 'partner')?.price?.toLocaleString() ? `Rp ${product.sellingPrices.find(p => p.tierName === 'partner')?.price.toLocaleString()}` : '-'}
+                      </TableCell>
+                       <TableCell className="text-right whitespace-nowrap">
+                        {product.category !== 'Jasa' && product.sellingPrices.find(p => p.tierName === 'servicePackage')?.price?.toLocaleString() ? `Rp ${product.sellingPrices.find(p => p.tierName === 'servicePackage')?.price.toLocaleString()}` : '-'}
                       </TableCell>
                       <TableCell className="text-center">{product.category === 'Jasa' ? '-' : product.stockQuantity}</TableCell>
                       <TableCell className="text-center">{product.category === 'Jasa' ? '-' : product.lowStockThreshold}</TableCell>
@@ -457,7 +472,7 @@ export default function InventoryPage() {
 
             <div className="grid grid-cols-4 items-center">
               <Label htmlFor="category" className="text-right col-span-4 sm:col-span-1 pr-3">Kategori<span className="text-destructive">*</span></Label>
-              <Select value={category || undefined} onValueChange={(value) => setCategory(value as Product['category'])}>
+              <Select value={category || undefined} onValueChange={(value) => setCategory(value as ProductCategory)}>
                 <SelectTrigger className="col-span-4 sm:col-span-3">
                   <SelectValue placeholder="Pilih kategori produk/jasa" />
                 </SelectTrigger>
@@ -477,7 +492,7 @@ export default function InventoryPage() {
             </div>
 
             <div className="grid grid-cols-4 items-center">
-              <Label htmlFor="sellingPriceDefault" className="text-right col-span-4 sm:col-span-1 pr-3">Harga Jual Default (Rp)<span className="text-destructive">*</span></Label>
+              <Label htmlFor="sellingPriceDefault" className="text-right col-span-4 sm:col-span-1 pr-3">Harga Jual Saja (Rp)<span className="text-destructive">*</span></Label>
               <Input id="sellingPriceDefault" type="number" value={sellingPriceDefault} onChange={(e) => setSellingPriceDefault(e.target.value)} className="col-span-4 sm:col-span-3" placeholder="Contoh: 75000" />
             </div>
 
@@ -485,6 +500,13 @@ export default function InventoryPage() {
               <Label htmlFor="sellingPricePartner" className="text-right col-span-4 sm:col-span-1 pr-3">Harga Jual Partner (Rp)</Label>
               <Input id="sellingPricePartner" type="number" value={sellingPricePartner} onChange={(e) => setSellingPricePartner(e.target.value)} className="col-span-4 sm:col-span-3" placeholder="Opsional, contoh: 65000" />
             </div>
+            
+            {category !== 'Jasa' && (
+              <div className="grid grid-cols-4 items-center">
+                <Label htmlFor="sellingPriceServicePackage" className="text-right col-span-4 sm:col-span-1 pr-3">Harga Jual + Pasang (Rp)</Label>
+                <Input id="sellingPriceServicePackage" type="number" value={sellingPriceServicePackage} onChange={(e) => setSellingPriceServicePackage(e.target.value)} className="col-span-4 sm:col-span-3" placeholder="Opsional, contoh: 90000" />
+              </div>
+            )}
             
             {category !== 'Jasa' && (
               <>

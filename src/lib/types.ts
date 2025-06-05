@@ -1,3 +1,4 @@
+
 import type { LucideIcon } from 'lucide-react';
 
 export interface NavItem {
@@ -9,19 +10,32 @@ export interface NavItem {
   external?: boolean;
 }
 
-// Placeholder types for core features - to be expanded
+export type ProductCategory = 'Suku Cadang' | 'Aksesoris' | 'Oli & Cairan' | 'Jasa' | 'Lainnya';
+export type PriceTierName = 'default' | 'partner' | 'servicePackage';
+
+export interface SellingPriceTier {
+  tierName: PriceTierName;
+  price: number;
+}
+
 export interface Product {
   id: string;
+  sku: string;
   name: string;
-  category: 'service' | 'part' | 'display';
+  category: ProductCategory;
   costPrice: number;
-  sellingPrices: { tier: string; price: number }[];
+  sellingPrices: SellingPriceTier[];
   stockQuantity: number;
   lowStockThreshold: number;
-  supplierId?: string;
-  imageUrl?: string;
   description?: string;
+  isActive: boolean;
+  createdAt: string;
+  updatedAt: string;
+  // Optional fields from original generic type, not strictly enforced by inventory's mock data
+  supplierId?: string; 
+  imageUrl?: string;
 }
+
 
 export interface SaleItem {
   productId: string;
