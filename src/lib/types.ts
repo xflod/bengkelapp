@@ -49,21 +49,23 @@ export interface SupplierOrderItem {
   productName: string;
   sku: string;
   orderQuantity: number;
-  // Potentially add costPriceAtOrderTime if needed for audit
+  quantityReceived?: number; 
+  actualCostPrice?: number;
 }
 
 export type SupplierOrderStatus = 'Draf Order' | 'Dipesan ke Supplier' | 'Sebagian Diterima' | 'Diterima Lengkap' | 'Dibatalkan';
 
 export interface SupplierOrder {
-  id: string; // e.g., SO-YYYYMMDD-XXXXX
-  orderDate: string; // ISO string
+  id: string; 
+  orderDate: string; 
   items: SupplierOrderItem[];
   status: SupplierOrderStatus;
-  notes?: string; // Optional notes for the entire order
-  supplierName?: string; // Optional
-  totalOrderQuantity?: number; // Sum of all item quantities
-  // Fields for receiving audit can be added later
-  // e.g., receivedDate, receivedItemsDetail
+  notes?: string; 
+  supplierName?: string; 
+  totalOrderQuantity?: number; 
+  receivedDate?: string;
+  invoiceNumber?: string;
+  receivingNotes?: string;
   createdAt: string;
   updatedAt: string;
 }
@@ -71,9 +73,9 @@ export interface SupplierOrder {
 
 export interface Sale {
   id: string;
-  date: string; // ISO string
+  date: string; 
   customerId?: string;
-  customerName?: string; // Denormalized for quick display
+  customerName?: string; 
   items: SaleItem[];
   subTotal: number;
   discount: number;
@@ -87,7 +89,7 @@ export interface Appointment {
   customerPhone?: string;
   vehicleDetails?: string;
   serviceType: string;
-  scheduledDateTime: string; // ISO string
+  scheduledDateTime: string; 
   status: 'booked' | 'in-progress' | 'completed' | 'cancelled';
   notes?: string;
 }
@@ -100,13 +102,13 @@ export interface Employee {
   id: string;
   name: string;
   position: string;
-  joinDate: string; // ISO Date string
+  joinDate: string; 
   phone?: string;
   address?: string;
   status: EmployeeStatus;
   payrollFrequency: PayrollFrequency;
   baseSalary: number;
-  loanNotes?: string; // Existing field, will be less used with new system
+  loanNotes?: string; 
   performanceNotes?: string;
   createdAt: string;
   updatedAt: string;
@@ -118,12 +120,12 @@ export type LoanStatus = 'Aktif' | 'Lunas' | 'Sebagian Lunas' | 'Dihapuskan';
 export interface Loan {
   id: string;
   employeeId: string;
-  loanDate: string; // ISO Date string
+  loanDate: string; 
   loanAmount: number;
   reason?: string;
   status: LoanStatus;
   remainingBalance: number;
-  repaymentNotes?: string; // General notes about repayment agreement
+  repaymentNotes?: string; 
   createdAt: string;
   updatedAt: string;
 }
@@ -131,19 +133,38 @@ export interface Loan {
 export interface LoanInstallment {
   id: string;
   loanId: string;
-  paymentDate: string; // ISO Date string
+  paymentDate: string; 
   amountPaid: number;
   notes?: string;
   createdAt: string;
 }
 
-// Type for items received in a supplier order - for audit
-export interface SupplierOrderReceivedItem {
-  productId: string;
-  productName: string; // for display convenience
-  sku: string; // for display convenience
-  quantityOrdered: number;
-  quantityReceived: number;
-  costPriceWhenReceived?: number; // Actual cost when received, per item
-  receivingNotes?: string;
+// Financial Ledger Types
+export type AccountEntryType = 'Pelanggan' | 'Partner Bengkel' | 'Supplier' | 'Operasional & Lainnya';
+export type AccountEntryNature = 'Piutang Usaha' | 'Hutang Usaha' | 'Piutang Lainnya' | 'Hutang Lainnya';
+export type AccountEntryStatus = 'Belum Lunas' | 'Sebagian Lunas' | 'Lunas' | 'Dihapuskan';
+
+export interface AccountEntry {
+  id: string;
+  entityType: AccountEntryType;
+  entityName: string; // e.g., Customer name, Supplier name, "Angsuran Bank BCA", "Sewa Ruko"
+  entryNature: AccountEntryNature;
+  entryDate: string; // ISO string
+  dueDate?: string; // ISO string, optional
+  initialAmount: number;
+  remainingAmount: number;
+  description: string; // Purpose of the transaction
+  status: AccountEntryStatus;
+  createdAt: string; // ISO string
+  updatedAt: string; // ISO string
+}
+
+export interface AccountPayment {
+  id: string;
+  accountEntryId: string; // Foreign key to AccountEntry
+  paymentDate: string; // ISO string
+  amountPaid: number;
+  paymentMethod?: string; // e.g., 'Tunai', 'Transfer Bank A', 'QRIS' - optional
+  notes?: string; // Optional notes for this specific payment
+  createdAt: string; // ISO string
 }

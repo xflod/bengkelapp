@@ -12,7 +12,8 @@ import {
   ClipboardList, 
   ClipboardCheck, 
   ShoppingBag,
-  ArchiveRestore // Ensure ArchiveRestore is imported
+  ArchiveRestore,
+  BookOpenText // Added for Finance/Ledger
 } from 'lucide-react';
 
 export const NAV_ITEMS: NavItem[] = [
@@ -57,7 +58,7 @@ export const NAV_ITEMS: NavItem[] = [
     icon: ShoppingBag,
   },
   {
-    title: 'Penerimaan Barang', // Added item
+    title: 'Penerimaan Barang',
     href: '/goods-receipt',
     icon: ArchiveRestore,
   },
@@ -67,19 +68,13 @@ export const NAV_ITEMS: NavItem[] = [
     icon: Users,
   },
   {
+    title: 'Buku Keuangan', // New Menu Item for Financial Ledger
+    href: '/finance/accounts-ledger',
+    icon: BookOpenText,
+  },
+  {
     title: 'Laporan',
     href: '/reports/profit',
     icon: BarChartBig,
   },
-  // Optional future items
-  // {
-  //   title: 'Pelanggan',
-  //   href: '/customers',
-  //   icon: Users,
-  // },
-  // {
-  //   title: 'Supplier',
-  //   href: '/suppliers',
-  //   icon: Truck,
-  // },
 ];
