@@ -49,7 +49,7 @@ export default function AccountsLedgerPage() {
   const [dueDate, setDueDate] = useState<Date | undefined>(undefined);
   const [initialAmount, setInitialAmount] = useState<string | number>('');
   const [description, setDescription] = useState('');
-  const [entryStatus, setEntryStatus] = useState<AccountEntryStatus>('Belum Lunas'); // For edit scenario
+  const [entryStatus, setEntryStatus] = useState<AccountEntryStatus>('Belum Lunas');
 
   const [searchTerm, setSearchTerm] = useState('');
   const [filterNature, setFilterNature] = useState<'all' | AccountEntryNature>('all');
@@ -139,15 +139,14 @@ export default function AccountsLedgerPage() {
       entryDate: format(entryDate, 'yyyy-MM-dd'),
       dueDate: dueDate ? format(dueDate, 'yyyy-MM-dd') : undefined,
       initialAmount: parsedInitialAmount,
-      remainingAmount: editingEntry ? editingEntry.remainingAmount : parsedInitialAmount, // Preserve remaining if editing
+      remainingAmount: editingEntry ? editingEntry.remainingAmount : parsedInitialAmount, 
       description: description.trim(),
-      status: editingEntry ? entryStatus : 'Belum Lunas', // Preserve status if editing
+      status: editingEntry ? entryStatus : 'Belum Lunas', 
       createdAt: editingEntry ? editingEntry.createdAt : now,
       updatedAt: now,
     };
 
     if (editingEntry) {
-      // If initial amount is changed for an existing entry, need to recalc remaining based on existing payments
       if (editingEntry.initialAmount !== newEntryData.initialAmount) {
           const relatedPaymentsTotal = payments
               .filter(p => p.accountEntryId === editingEntry.id)
@@ -159,7 +158,7 @@ export default function AccountsLedgerPage() {
           else if (newEntryData.remainingAmount < newEntryData.initialAmount) newEntryData.status = 'Sebagian Lunas';
           else newEntryData.status = 'Belum Lunas';
       } else {
-          newEntryData.remainingAmount = editingEntry.remainingAmount; // Keep original logic if amount not changed
+          newEntryData.remainingAmount = editingEntry.remainingAmount; 
           newEntryData.status = entryStatus;
       }
 
@@ -178,9 +177,8 @@ export default function AccountsLedgerPage() {
       setPayments(prev => prev.filter(p => p.accountEntryId !== entryId));
       toast({ title: "Catatan Keuangan Dihapus" });
     }
-  }, [toast]);
+  }, [toast, setEntries, setPayments]);
   
-  // Payment Functions
   const resetPaymentFormFields = useCallback(() => {
     setPaymentDate(startOfDay(new Date()));
     setAmountPaid('');
@@ -188,11 +186,11 @@ export default function AccountsLedgerPage() {
     setPaymentNotes('');
   }, []);
 
-  const openPaymentDialog = (entry: AccountEntry) => {
+  const openPaymentDialog = useCallback((entry: AccountEntry) => {
     setSelectedEntryForPayment(entry);
     resetPaymentFormFields();
     setIsPaymentDialogOpen(true);
-  };
+  }, [resetPaymentFormFields]);
 
   const handleSavePayment = () => {
     if (!selectedEntryForPayment || !paymentDate || !amountPaid) {
@@ -229,14 +227,13 @@ export default function AccountsLedgerPage() {
             else if (newRemaining < e.initialAmount) newStatus = 'Sebagian Lunas';
             
             const updatedEntry = { ...e, remainingAmount: newRemaining, status: newStatus, updatedAt: now };
-            setSelectedEntryForPayment(updatedEntry); // Update the entry in payment dialog state
+            setSelectedEntryForPayment(updatedEntry); 
             return updatedEntry;
         }
         return e;
     }));
     toast({ title: "Pembayaran Dicatat"});
     resetPaymentFormFields(); 
-    // setIsPaymentDialogOpen(false); // Keep dialog open to see history or add more
   };
 
   const getStatusBadgeColor = (status: AccountEntryStatus) => {
@@ -291,7 +288,7 @@ export default function AccountsLedgerPage() {
               onChange={(e) => setSearchTerm(e.target.value)}
               className="sm:col-span-1"
             />
-            <Select value={filterNature} onValueChange={(value) => setFilterNature(value as 'all' | AccountEntryNature')}>
+            <Select value={filterNature} onValueChange={(value) => setFilterNature(value as 'all' | AccountEntryNature)}>
               <SelectTrigger><SelectValue placeholder="Filter Sifat Transaksi..." /></SelectTrigger>
               <SelectContent>
                 <SelectItem value="all">Semua Sifat</SelectItem>
@@ -301,7 +298,7 @@ export default function AccountsLedgerPage() {
                 <SelectItem value="Hutang Lainnya">Hutang Lainnya</SelectItem>
               </SelectContent>
             </Select>
-            <Select value={filterStatus} onValueChange={(value) => setFilterStatus(value as 'all' | AccountEntryStatus')}>
+            <Select value={filterStatus} onValueChange={(value) => setFilterStatus(value as 'all' | AccountEntryStatus)}>
               <SelectTrigger><SelectValue placeholder="Filter Status..." /></SelectTrigger>
               <SelectContent>
                 <SelectItem value="all">Semua Status</SelectItem>
@@ -523,3 +520,5 @@ export default function AccountsLedgerPage() {
     </div>
   );
 }
+
+    
