@@ -51,11 +51,18 @@ export default function InventoryPage() {
       .order('updatedAt', { ascending: false });
 
     if (error) {
-      console.error('Error fetching products:', error);
-      toast({ variant: "destructive", title: "Gagal Memuat Inventaris", description: error.message });
+      console.error('Error fetching products (raw):', JSON.stringify(error, null, 2));
+      let detailedMessage = "Gagal memuat inventaris dari server.";
+      if (error.message) {
+        detailedMessage = error.message;
+      } else if (typeof error === 'object' && error !== null && Object.keys(error).length === 0) {
+        detailedMessage = "Query berhasil namun tidak ada data inventaris yang dikembalikan, atau akses ditolak. Mohon periksa Row Level Security (RLS) di Supabase untuk tabel 'products' dan pastikan tabelnya ada.";
+      } else if (typeof error === 'object' && error !== null) {
+        detailedMessage = `Terjadi kesalahan: ${JSON.stringify(error)}. Periksa RLS Supabase.`;
+      }
+      toast({ variant: "destructive", title: "Kesalahan Database Inventaris", description: detailedMessage });
       setProducts([]);
     } else {
-      // Transform selling_prices from JSON string to object if stored as JSONB or text
       const transformedData = data.map(p => ({
         ...p,
         sellingPrices: typeof p.sellingPrices === 'string' ? JSON.parse(p.sellingPrices) : p.sellingPrices,
@@ -106,19 +113,18 @@ export default function InventoryPage() {
   }, [resetFormFields]);
 
   const handleSaveProduct = async () => {
-    // Validasi form (sama seperti sebelumnya)
     const currentProductName = productName.trim();
     const currentSku = sku.trim();
     if (!currentProductName || !currentSku || !category) {
       toast({ variant: "destructive", title: "Data Tidak Lengkap", description: "SKU, Nama, dan Kategori wajib diisi." });
       return;
     }
-    // ... validasi lainnya ...
+    
     const parsedCostPrice = parseFloat(String(costPrice));
     const parsedSellingPriceDefault = parseFloat(String(sellingPriceDefault));
     const parsedSellingPricePartner = String(sellingPricePartner).trim() !== '' ? parseFloat(String(sellingPricePartner)) : undefined;
     const parsedSellingPriceServicePackage = category !== 'Jasa' && String(sellingPriceServicePackage).trim() !== '' ? parseFloat(String(sellingPriceServicePackage)) : undefined;
-    let parsedStockQuantity = category === 'Jasa' ? 999 : parseInt(String(stockQuantity), 10);
+    let parsedStockQuantity = category === 'Jasa' ? 0 : parseInt(String(stockQuantity), 10); // Jasa typically has no stock or infinite
     let parsedLowStockThreshold = category === 'Jasa' ? 0 : parseInt(String(lowStockThreshold), 10);
 
     if (isNaN(parsedCostPrice) || isNaN(parsedSellingPriceDefault) || 
@@ -128,6 +134,11 @@ export default function InventoryPage() {
         toast({ variant: "destructive", title: "Data Angka Tidak Valid", description: "Harga dan Stok harus berupa angka." });
         return;
     }
+    if (category === 'Jasa') {
+        parsedStockQuantity = 9999; // Or some large number to signify 'available'
+        parsedLowStockThreshold = 0;
+    }
+
 
     const sellingPricesArray: SellingPriceTier[] = [
       { tierName: 'default', price: parsedSellingPriceDefault },
@@ -143,40 +154,53 @@ export default function InventoryPage() {
       sku: currentSku,
       name: currentProductName,
       category: category as ProductCategory,
-      costPrice: parsedCostPrice,
-      sellingPrices: sellingPricesArray, // Supabase bisa handle JSON/JSONB
-      stockQuantity: parsedStockQuantity,
-      lowStockThreshold: parsedLowStockThreshold,
+      cost_price: parsedCostPrice,
+      selling_prices: sellingPricesArray, 
+      stock_quantity: parsedStockQuantity,
+      low_stock_threshold: parsedLowStockThreshold,
       description: description.trim() || undefined,
-      isActive: isActive,
-      updatedAt: new Date().toISOString(),
+      is_active: isActive,
+      updated_at: new Date().toISOString(),
     };
+    
+    // For Supabase, use snake_case for column names if your table is defined that way
+    const productDataSupabase: any = { ...productData };
+    delete productDataSupabase.costPrice; productDataSupabase.cost_price = productData.costPrice;
+    delete productDataSupabase.sellingPrices; productDataSupabase.selling_prices = productData.sellingPrices;
+    delete productDataSupabase.stockQuantity; productDataSupabase.stock_quantity = productData.stockQuantity;
+    delete productDataSupabase.lowStockThreshold; productDataSupabase.low_stock_threshold = productData.lowStockThreshold;
+    delete productDataSupabase.isActive; productDataSupabase.is_active = productData.isActive;
+    delete productDataSupabase.updatedAt; productDataSupabase.updated_at = productData.updatedAt;
+    if (!editingProduct) {
+      productDataSupabase.created_at = new Date().toISOString();
+    }
 
-    if (editingProduct) {
+
+    if (editingProduct && editingProduct.id) {
       const { error } = await supabase
         .from('products')
-        .update({ ...productData, id: editingProduct.id }) // Pastikan ID dikirim untuk update
+        .update(productDataSupabase)
         .match({ id: editingProduct.id });
       if (error) {
         toast({ variant: "destructive", title: "Gagal Memperbarui Produk", description: error.message });
       } else {
         toast({ title: "Produk Diperbarui", description: `${productData.name} telah diperbarui.` });
-        fetchProducts(); // Refresh list
+        fetchProducts(); 
       }
     } else {
-      const { data: existingSku } = await supabase.from('products').select('id').eq('sku', currentSku).single();
-      if (existingSku) {
+      const { data: existingSkuData } = await supabase.from('products').select('id').eq('sku', currentSku).single();
+      if (existingSkuData) {
         toast({ variant: "destructive", title: "SKU Duplikat", description: `SKU ${currentSku} sudah ada. Mohon gunakan SKU yang unik.` });
         return;
       }
       const { error } = await supabase
         .from('products')
-        .insert([{ ...productData, createdAt: new Date().toISOString() }]);
+        .insert([productDataSupabase]);
       if (error) {
         toast({ variant: "destructive", title: "Gagal Menambah Produk", description: error.message });
       } else {
         toast({ title: "Produk Ditambahkan", description: `${productData.name} telah ditambahkan.` });
-        fetchProducts(); // Refresh list
+        fetchProducts(); 
       }
     }
     setIsFormDialogOpen(false);
@@ -192,7 +216,7 @@ export default function InventoryPage() {
         toast({ variant: "destructive", title: "Gagal Menghapus Produk", description: error.message });
       } else {
         toast({ title: "Produk Dihapus", description: `${productName} telah dihapus.` });
-        fetchProducts(); // Refresh list
+        fetchProducts(); 
       }
     }
   };
@@ -200,13 +224,13 @@ export default function InventoryPage() {
   const handleToggleActive = async (productId: string, currentIsActive: boolean) => {
     const { error } = await supabase
       .from('products')
-      .update({ isActive: !currentIsActive, updatedAt: new Date().toISOString() })
+      .update({ is_active: !currentIsActive, updated_at: new Date().toISOString() })
       .match({ id: productId });
     if (error) {
       toast({ variant: "destructive", title: "Gagal Mengubah Status", description: error.message });
     } else {
       toast({ title: "Status Produk Diubah" });
-      fetchProducts(); // Refresh list
+      fetchProducts(); 
     }
   };
 
@@ -225,10 +249,10 @@ export default function InventoryPage() {
         case 'allActive': tempProducts = tempProducts.filter(p => p.isActive); break;
         case 'all': break;
     }
-    return tempProducts.sort((a, b) => new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime());
+    return tempProducts.sort((a, b) => new Date(b.updatedAt || 0).getTime() - new Date(a.updatedAt || 0).getTime());
   }, [products, searchTerm, activeFilter]);
 
-  if (isLoading) {
+  if (isLoading && products.length === 0) {
     return <div className="flex justify-center items-center h-screen"><p>Memuat data inventaris...</p></div>;
   }
 
@@ -236,7 +260,7 @@ export default function InventoryPage() {
     if (!product.isActive) return "bg-muted/40 text-muted-foreground hover:bg-muted/50";
     if (product.category !== 'Jasa') {
         if (product.stockQuantity === 0) return "bg-red-100/70 dark:bg-red-900/30 hover:bg-red-200/70 dark:hover:bg-red-800/40";
-        if (product.stockQuantity <= product.lowStockThreshold) return "bg-yellow-100/70 dark:bg-yellow-900/30 hover:bg-yellow-200/70 dark:hover:bg-yellow-800/40";
+        if (product.stockQuantity <= product.lowStockThreshold && product.lowStockThreshold > 0) return "bg-yellow-100/70 dark:bg-yellow-900/30 hover:bg-yellow-200/70 dark:hover:bg-yellow-800/40";
     }
     return "";
   };
@@ -314,7 +338,7 @@ export default function InventoryPage() {
                         {product.name}
                         {!product.isActive && <Badge variant="outline" className="ml-2 text-xs">Nonaktif</Badge>}
                         {product.category !== 'Jasa' && product.isActive && product.stockQuantity === 0 && <Badge variant="destructive" className="ml-2 text-xs">Habis</Badge>}
-                        {product.category !== 'Jasa' && product.isActive && product.stockQuantity > 0 && product.stockQuantity <= product.lowStockThreshold && <Badge variant="outline" className="ml-2 text-xs border-yellow-500 text-yellow-700">Menipis</Badge>}
+                        {product.category !== 'Jasa' && product.isActive && product.stockQuantity > 0 && product.lowStockThreshold > 0 && product.stockQuantity <= product.lowStockThreshold && <Badge variant="outline" className="ml-2 text-xs border-yellow-500 text-yellow-700">Menipis</Badge>}
                       </TableCell>
                       <TableCell>{product.category}</TableCell>
                       <TableCell className="text-right whitespace-nowrap">Rp {product.costPrice.toLocaleString()}</TableCell>
@@ -385,3 +409,4 @@ export default function InventoryPage() {
     </div>
   );
 }
+

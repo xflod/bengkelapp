@@ -33,16 +33,32 @@ export default function SupplierOrdersPage() {
   const [supplierOrdersList, setSupplierOrdersList] = useState<SupplierOrder[]>([]);
   const [selectedOrderForDetail, setSelectedOrderForDetail] = useState<SupplierOrder | null>(null);
   const [isDetailOrderDialogOpen, setIsDetailOrderDialogOpen] = useState(false);
-  const [supplierName, setSupplierName] = useState(''); // For new order draft
+  const [supplierName, setSupplierName] = useState(''); 
 
   const fetchInventory = useCallback(async () => {
     setIsLoading(true);
     const { data, error } = await supabase.from('products').select('*').neq('category', 'Jasa');
     if (error) {
-      toast({ variant: "destructive", title: "Gagal Memuat Inventaris", description: error.message });
+      console.error("Error fetching inventory (raw):", JSON.stringify(error, null, 2));
+      let detailedMessage = "Gagal memuat inventaris dari server.";
+      if (error.message) {
+        detailedMessage = error.message;
+      } else if (typeof error === 'object' && error !== null && Object.keys(error).length === 0) {
+        detailedMessage = "Query inventaris berhasil namun tidak ada data yang dikembalikan, atau akses ditolak. Mohon periksa Row Level Security (RLS) di Supabase untuk tabel 'products'.";
+      } else if (typeof error === 'object' && error !== null) {
+        detailedMessage = `Terjadi kesalahan: ${JSON.stringify(error)}. Periksa RLS Supabase.`;
+      }
+      toast({ variant: "destructive", title: "Gagal Memuat Inventaris", description: detailedMessage });
       setInventoryProducts([]);
     } else {
-      const transformedData = data.map(p => ({ ...p, sellingPrices: typeof p.sellingPrices === 'string' ? JSON.parse(p.sellingPrices) : p.sellingPrices }));
+      const transformedData = data.map(p => ({ 
+          ...p, 
+          sellingPrices: typeof p.selling_prices === 'string' ? JSON.parse(p.selling_prices) : p.selling_prices,
+          costPrice: p.cost_price,
+          stockQuantity: p.stock_quantity,
+          lowStockThreshold: p.low_stock_threshold,
+          isActive: p.is_active,
+        }));
       setInventoryProducts(transformedData as Product[]);
     }
     setIsLoading(false);
@@ -50,39 +66,59 @@ export default function SupplierOrdersPage() {
 
   const fetchSupplierOrders = useCallback(async () => {
     setIsLoading(true);
-    const { data, error } = await supabase.from('supplierOrders').select('*').order('orderDate', { ascending: false });
+    const { data, error } = await supabase.from('supplier_orders').select('*').order('order_date', { ascending: false });
     if (error) {
-      toast({ variant: "destructive", title: "Gagal Memuat Riwayat Order", description: error.message });
+      console.error("Error fetching supplier orders (raw):", JSON.stringify(error, null, 2));
+      let detailedMessage = "Gagal memuat riwayat order dari server.";
+      if (error.message) {
+        detailedMessage = error.message;
+      } else if (typeof error === 'object' && error !== null && Object.keys(error).length === 0) {
+        detailedMessage = "Query riwayat order berhasil namun tidak ada data yang dikembalikan, atau akses ditolak. Mohon periksa Row Level Security (RLS) di Supabase untuk tabel 'supplier_orders'.";
+      } else if (typeof error === 'object' && error !== null) {
+        detailedMessage = `Terjadi kesalahan: ${JSON.stringify(error)}. Periksa RLS Supabase.`;
+      }
+      toast({ variant: "destructive", title: "Gagal Memuat Riwayat Order", description: detailedMessage });
       setSupplierOrdersList([]);
     } else {
-      setSupplierOrdersList(data as SupplierOrder[]);
+       const transformedData = data.map(so => ({
+        ...so,
+        id: String(so.id), // ensure id is string
+        items: typeof so.items === 'string' ? JSON.parse(so.items) : so.items,
+        orderDate: so.order_date,
+        totalOrderQuantity: so.total_order_quantity,
+        supplierName: so.supplier_name,
+        receivedDate: so.received_date,
+        invoiceNumber: so.invoice_number,
+        receivingNotes: so.receiving_notes,
+        createdAt: so.created_at,
+        updatedAt: so.updated_at,
+      }));
+      setSupplierOrdersList(transformedData as SupplierOrder[]);
     }
     setIsLoading(false);
   }, [toast]);
 
   useEffect(() => { fetchInventory(); fetchSupplierOrders(); }, [fetchInventory, fetchSupplierOrders]);
 
-  // handleInputChange, handleAddToOrder, handleUpdateOrderItemQuantity, handleRemoveFromOrder are UI logic, no DB change
   const handleInputChange = (productId: string, value: string) => { setOrderQuantitiesInput(prev => ({ ...prev, [productId]: value })); };
   const handleAddToOrder = (product: Product) => { const quantityStr = orderQuantitiesInput[product.id] || '0'; const quantity = parseInt(quantityStr, 10); if (isNaN(quantity) || quantity <= 0) { toast({ variant: "destructive", title: "Jumlah Tidak Valid" }); return; } setOrderItems(prevItems => { const existingItemIndex = prevItems.findIndex(item => item.productId === product.id); if (existingItemIndex > -1) { const updatedItems = [...prevItems]; updatedItems[existingItemIndex].orderQuantity += quantity; return updatedItems; } else { return [...prevItems, { productId: product.id, productName: product.name, sku: product.sku, orderQuantity: quantity }]; } }); toast({ title: "Ditambahkan ke Order" }); setOrderQuantitiesInput(prev => ({ ...prev, [product.id]: '' })); };
   const handleUpdateOrderItemQuantity = (productId: string, change: number) => { setOrderItems(prevItems => { const itemIndex = prevItems.findIndex(item => item.productId === productId); if (itemIndex === -1) return prevItems; const updatedItems = [...prevItems]; const newQuantity = updatedItems[itemIndex].orderQuantity + change; if (newQuantity <= 0) { return updatedItems.filter(item => item.productId !== productId); } else { updatedItems[itemIndex].orderQuantity = newQuantity; return updatedItems; } }); };
   const handleRemoveFromOrder = (productId: string) => { setOrderItems(prevItems => prevItems.filter(item => item.productId !== productId)); toast({ title: "Item Dihapus" }); };
   
-  const filteredAndSortedProducts = useMemo(() => { /* Unchanged UI logic */ let tempProducts = inventoryProducts.filter(p => p.category !== 'Jasa'); if (searchTerm) { tempProducts = tempProducts.filter(product => product.name.toLowerCase().includes(searchTerm.toLowerCase()) || product.sku.toLowerCase().includes(searchTerm.toLowerCase())); } switch (activeFilter) { case 'lowStock': tempProducts = tempProducts.filter(p => p.isActive && p.stockQuantity > 0 && p.stockQuantity <= p.lowStockThreshold); break; case 'outOfStock': tempProducts = tempProducts.filter(p => p.isActive && p.stockQuantity === 0); break; case 'inactive': tempProducts = tempProducts.filter(p => !p.isActive); break; case 'allActive': tempProducts = tempProducts.filter(p => p.isActive); break; case 'all': break; } return tempProducts.sort((a, b) => new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime()); }, [inventoryProducts, searchTerm, activeFilter]);
+  const filteredAndSortedProducts = useMemo(() => { let tempProducts = inventoryProducts.filter(p => p.category !== 'Jasa'); if (searchTerm) { tempProducts = tempProducts.filter(product => product.name.toLowerCase().includes(searchTerm.toLowerCase()) || product.sku.toLowerCase().includes(searchTerm.toLowerCase())); } switch (activeFilter) { case 'lowStock': tempProducts = tempProducts.filter(p => p.isActive && p.stockQuantity > 0 && p.stockQuantity <= p.lowStockThreshold); break; case 'outOfStock': tempProducts = tempProducts.filter(p => p.isActive && p.stockQuantity === 0); break; case 'inactive': tempProducts = tempProducts.filter(p => !p.isActive); break; case 'allActive': tempProducts = tempProducts.filter(p => p.isActive); break; case 'all': break; } return tempProducts.sort((a, b) => new Date(b.updatedAt || 0).getTime() - new Date(a.updatedAt || 0).getTime()); }, [inventoryProducts, searchTerm, activeFilter]);
 
   const handleSaveDraftAndGenerateWhatsApp = async () => {
     if (orderItems.length === 0) { toast({ variant: "destructive", title: "Keranjang Order Kosong" }); return; }
     const now = new Date();
-    const newOrderData = {
-      orderDate: now.toISOString(), items: orderItems, status: 'Draf Order' as SupplierOrderStatus,
-      totalOrderQuantity: orderItems.reduce((sum, item) => sum + item.orderQuantity, 0),
-      createdAt: now.toISOString(), updatedAt: now.toISOString(),
-      supplierName: supplierName.trim() || undefined,
-      // Client-generated ID for display or until Supabase ID is available
+    const newOrderDataSupabase = {
+      order_date: now.toISOString(), items: orderItems, status: 'Draf Order' as SupplierOrderStatus,
+      total_order_quantity: orderItems.reduce((sum, item) => sum + item.orderQuantity, 0),
+      created_at: now.toISOString(), updated_at: now.toISOString(),
+      supplier_name: supplierName.trim() || undefined,
       client_order_id: `SO-${format(now, 'yyyyMMddHHmmss')}-${Math.random().toString(36).substring(2, 7).toUpperCase()}`
     };
 
-    const { data: insertedOrder, error } = await supabase.from('supplierOrders').insert([newOrderData]).select().single();
+    const { data: insertedOrder, error } = await supabase.from('supplier_orders').insert([newOrderDataSupabase]).select().single();
     if (error) { toast({ variant: "destructive", title: "Gagal Simpan Draf Order", description: error.message }); return; }
     
     let message = `Order ke ${supplierName || 'Supplier'}:\n\n`;
@@ -92,18 +128,17 @@ export default function SupplierOrdersPage() {
     const whatsappUrl = `https://api.whatsapp.com/send?text=${encodeURIComponent(message)}`;
     window.open(whatsappUrl, '_blank');
     
-    toast({ title: "Draf Order Disimpan & WA Siap", description: `Order ID: ${insertedOrder?.id || newOrderData.client_order_id}` });
+    toast({ title: "Draf Order Disimpan & WA Siap", description: `Order ID: ${insertedOrder?.id || newOrderDataSupabase.client_order_id}` });
     setOrderItems([]); setSupplierName(''); fetchSupplierOrders();
   };
 
-  // getProductRowClass, getStatusBadgeColor, handleOpenDetailDialog are UI logic
-  const getProductRowClass = (product: Product) => { /* Unchanged */ if (!product.isActive) return "bg-muted/40 text-muted-foreground opacity-70"; if (product.stockQuantity === 0) return "bg-red-100/70"; if (product.stockQuantity <= product.lowStockThreshold) return "bg-yellow-100/70"; return ""; };
-  const getStatusBadgeColor = (status: SupplierOrderStatus) => { /* Unchanged */ switch (status) { case 'Draf Order': return 'bg-gray-500'; case 'Dipesan ke Supplier': return 'bg-blue-500'; case 'Sebagian Diterima': return 'bg-yellow-500'; case 'Diterima Lengkap': return 'bg-green-500'; case 'Dibatalkan': return 'bg-red-500'; default: return 'bg-gray-400'; } };
+  const getProductRowClass = (product: Product) => { if (!product.isActive) return "bg-muted/40 text-muted-foreground opacity-70"; if (product.category !== 'Jasa' && product.stockQuantity === 0) return "bg-red-100/70 dark:bg-red-900/30"; if (product.category !== 'Jasa' && product.stockQuantity > 0 && product.lowStockThreshold > 0 && product.stockQuantity <= product.lowStockThreshold) return "bg-yellow-100/70 dark:bg-yellow-900/30"; return ""; };
+  const getStatusBadgeColor = (status: SupplierOrderStatus) => { switch (status) { case 'Draf Order': return 'bg-gray-500'; case 'Dipesan ke Supplier': return 'bg-blue-500'; case 'Sebagian Diterima': return 'bg-yellow-500'; case 'Diterima Lengkap': return 'bg-green-500'; case 'Dibatalkan': return 'bg-red-500'; default: return 'bg-gray-400'; } };
   const handleOpenDetailDialog = (order: SupplierOrder) => { setSelectedOrderForDetail(order); setIsDetailOrderDialogOpen(true); };
   
-  const handleDeleteSupplierOrder = async (orderId: number) => {
+  const handleDeleteSupplierOrder = async (orderId: string) => {
     if (window.confirm("Yakin ingin menghapus draf order ini?")) {
-        const { error } = await supabase.from('supplierOrders').delete().match({ id: orderId });
+        const { error } = await supabase.from('supplier_orders').delete().match({ id: orderId });
         if (error) toast({ variant: "destructive", title: "Gagal Hapus Draf Order", description: error.message });
         else { toast({ title: "Draf Order Dihapus" }); fetchSupplierOrders(); }
     }
@@ -111,7 +146,6 @@ export default function SupplierOrdersPage() {
 
   if (isLoading && inventoryProducts.length === 0 && supplierOrdersList.length === 0) { return <div className="flex justify-center items-center h-screen"><p>Memuat data...</p></div>; }
 
-  // JSX unchanged except for removing client_order_id display if Supabase ID is primary
   return (
     <div className="space-y-6">
       <PageHeader title="Order & Penerimaan dari Supplier" description="Buat draf order, lihat riwayat, dan kelola penerimaan."/>
@@ -121,7 +155,7 @@ export default function SupplierOrdersPage() {
           <div className="mb-4"><label htmlFor="supplierName" className="block text-sm font-medium text-gray-700 mb-1">Nama Supplier (Opsional)</label><Input id="supplierName" value={supplierName} onChange={(e) => setSupplierName(e.target.value)} placeholder="Masukkan nama supplier" /></div>
           <div className="grid lg:grid-cols-3 gap-6">
             <div className="lg:col-span-2 space-y-4"><Card className="shadow-md"><CardHeader><CardTitle>Daftar Item Inventaris (Non-Jasa)</CardTitle><CardDescription>Cari & pilih item untuk diorder.</CardDescription></CardHeader><CardContent><div className="flex flex-col sm:flex-row gap-2 mb-4"><div className="relative flex-grow"><Search className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-muted-foreground" /><Input type="text" placeholder="Cari Nama/SKU..." value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} className="pl-10 w-full" /></div><DropdownMenu><DropdownMenuTrigger asChild><Button variant="outline" className="w-full sm:w-auto"><Filter className="mr-2 h-4 w-4" />Filter ({ activeFilter === 'all' ? 'Semua Fisik' : activeFilter })</Button></DropdownMenuTrigger><DropdownMenuContent align="end" className="w-[200px]"><DropdownMenuLabel>Filter Status</DropdownMenuLabel><DropdownMenuSeparator /><DropdownMenuItem onClick={() => setActiveFilter('allActive')}>Semua Aktif</DropdownMenuItem><DropdownMenuItem onClick={() => setActiveFilter('lowStock')}>Stok Menipis</DropdownMenuItem><DropdownMenuItem onClick={() => setActiveFilter('outOfStock')}>Stok Habis</DropdownMenuItem><DropdownMenuItem onClick={() => setActiveFilter('inactive')}>Nonaktif</DropdownMenuItem><DropdownMenuSeparator /><DropdownMenuItem onClick={() => setActiveFilter('all')}>Semua Fisik</DropdownMenuItem></DropdownMenuContent></DropdownMenu></div>
-              {filteredAndSortedProducts.length > 0 ? (<div className="overflow-x-auto max-h-[60vh]"><Table><TableHeader className="sticky top-0 bg-card z-10"><TableRow><TableHead className="min-w-[200px]">Nama Item</TableHead><TableHead className="min-w-[120px]">SKU</TableHead><TableHead className="text-center min-w-[80px]">Stok</TableHead><TableHead className="w-[120px] text-center">Jml Order</TableHead><TableHead className="w-[100px] text-right">Aksi</TableHead></TableRow></TableHeader><TableBody>{filteredAndSortedProducts.map((product) => (<TableRow key={product.id} className={getProductRowClass(product)}><TableCell className="font-medium">{product.name}{!product.isActive && <Badge variant="outline" className="ml-2 text-xs">Nonaktif</Badge>}{product.isActive && product.stockQuantity === 0 && <Badge variant="destructive" className="ml-2 text-xs">Habis</Badge>}{product.isActive && product.stockQuantity > 0 && product.stockQuantity <= product.lowStockThreshold && <Badge variant="outline" className="ml-2 text-xs border-yellow-500 text-yellow-700">Menipis</Badge>}</TableCell><TableCell className="font-mono text-xs">{product.sku}</TableCell><TableCell className="text-center">{product.stockQuantity}</TableCell><TableCell className="text-center"><Input type="number" value={orderQuantitiesInput[product.id] || ''} onChange={(e) => handleInputChange(product.id, e.target.value)} placeholder="Qty" className="w-20 h-8 text-center mx-auto" min="1" disabled={!product.isActive} /></TableCell><TableCell className="text-right"><Button size="sm" onClick={() => handleAddToOrder(product)} disabled={!product.isActive || !orderQuantitiesInput[product.id] || parseInt(orderQuantitiesInput[product.id] || '0') <= 0} className="h-8"><PlusCircle className="mr-1 h-4 w-4" /> Add</Button></TableCell></TableRow>))}</TableBody></Table></div>) : ( <Card className="w-full text-center shadow-none border-dashed py-10"><CardHeader className="items-center">{ (activeFilter === 'all' && !searchTerm) || (activeFilter === 'allActive' && !searchTerm) ? <PackagePlus className="w-16 h-16 text-muted-foreground mb-4" /> : <Search className="w-16 h-16 text-muted-foreground mb-4" />}<CardTitle className="text-xl text-foreground">{ (activeFilter === 'all' && !searchTerm) || (activeFilter === 'allActive' && !searchTerm) ? "Belum Ada Item Fisik" : "Item Tidak Ditemukan"}</CardTitle></CardHeader><CardContent><p className="text-muted-foreground">{ (activeFilter === 'all' && !searchTerm) || (activeFilter === 'allActive' && !searchTerm) ? "Tidak ada item fisik." : "Item tidak cocok filter."}</p></CardContent></Card>)}
+              {filteredAndSortedProducts.length > 0 ? (<div className="overflow-x-auto max-h-[60vh]"><Table><TableHeader className="sticky top-0 bg-card z-10"><TableRow><TableHead className="min-w-[200px]">Nama Item</TableHead><TableHead className="min-w-[120px]">SKU</TableHead><TableHead className="text-center min-w-[80px]">Stok</TableHead><TableHead className="w-[120px] text-center">Jml Order</TableHead><TableHead className="w-[100px] text-right">Aksi</TableHead></TableRow></TableHeader><TableBody>{filteredAndSortedProducts.map((product) => (<TableRow key={product.id} className={getProductRowClass(product)}><TableCell className="font-medium">{product.name}{!product.isActive && <Badge variant="outline" className="ml-2 text-xs">Nonaktif</Badge>}{product.isActive && product.category !== 'Jasa' && product.stockQuantity === 0 && <Badge variant="destructive" className="ml-2 text-xs">Habis</Badge>}{product.isActive && product.category !== 'Jasa' && product.stockQuantity > 0 && product.lowStockThreshold > 0 && product.stockQuantity <= product.lowStockThreshold && <Badge variant="outline" className="ml-2 text-xs border-yellow-500 text-yellow-700">Menipis</Badge>}</TableCell><TableCell className="font-mono text-xs">{product.sku}</TableCell><TableCell className="text-center">{product.category === 'Jasa' ? 'N/A' : product.stockQuantity}</TableCell><TableCell className="text-center"><Input type="number" value={orderQuantitiesInput[product.id] || ''} onChange={(e) => handleInputChange(product.id, e.target.value)} placeholder="Qty" className="w-20 h-8 text-center mx-auto" min="1" disabled={!product.isActive} /></TableCell><TableCell className="text-right"><Button size="sm" onClick={() => handleAddToOrder(product)} disabled={!product.isActive || !orderQuantitiesInput[product.id] || parseInt(orderQuantitiesInput[product.id] || '0') <= 0} className="h-8"><PlusCircle className="mr-1 h-4 w-4" /> Add</Button></TableCell></TableRow>))}</TableBody></Table></div>) : ( <Card className="w-full text-center shadow-none border-dashed py-10"><CardHeader className="items-center">{ (activeFilter === 'all' && !searchTerm) || (activeFilter === 'allActive' && !searchTerm) ? <PackagePlus className="w-16 h-16 text-muted-foreground mb-4" /> : <Search className="w-16 h-16 text-muted-foreground mb-4" />}<CardTitle className="text-xl text-foreground">{ (activeFilter === 'all' && !searchTerm) || (activeFilter === 'allActive' && !searchTerm) ? "Belum Ada Item Fisik" : "Item Tidak Ditemukan"}</CardTitle></CardHeader><CardContent><p className="text-muted-foreground">{ (activeFilter === 'all' && !searchTerm) || (activeFilter === 'allActive' && !searchTerm) ? "Tidak ada item fisik." : "Item tidak cocok filter."}</p></CardContent></Card>)}
             </CardContent></Card></div>
             <div className="lg:col-span-1 space-y-4"><Card className="shadow-md lg:sticky lg:top-20"><CardHeader><CardTitle>Keranjang Order (Draf)</CardTitle><CardDescription>Item yang akan di-draft.</CardDescription></CardHeader><CardContent className="space-y-2">{orderItems.length > 0 ? (<div className="max-h-[450px] overflow-y-auto"><Table><TableHeader><TableRow><TableHead className="w-[60%]">Item</TableHead><TableHead className="text-center w-[30%]">Qty</TableHead><TableHead className="text-right w-[10%]">Aksi</TableHead></TableRow></TableHeader><TableBody>{orderItems.map(item => (<TableRow key={item.productId}><TableCell className="font-medium text-sm break-words">{item.productName} <br/><span className="text-xs text-muted-foreground font-mono">{item.sku}</span></TableCell><TableCell className="text-center"><div className="flex items-center justify-center gap-1"><Button variant="outline" size="icon" className="h-6 w-6" onClick={() => handleUpdateOrderItemQuantity(item.productId, -1)}><MinusCircle className="h-3 w-3" /></Button><span className="w-8 text-center text-sm font-medium">{item.orderQuantity}</span><Button variant="outline" size="icon" className="h-6 w-6" onClick={() => handleUpdateOrderItemQuantity(item.productId, 1)}><PlusCircle className="h-3 w-3" /></Button></div></TableCell><TableCell className="text-right"><Button variant="ghost" size="icon" onClick={() => handleRemoveFromOrder(item.productId)} className="text-destructive hover:text-destructive/80 h-7 w-7"><Trash2 className="h-4 w-4" /></Button></TableCell></TableRow>))}</TableBody></Table></div>) : (<div className="text-center py-8 text-muted-foreground"><ShoppingBag className="mx-auto h-12 w-12 mb-2 opacity-50" /><p>Keranjang order kosong.</p></div>)}</CardContent>{orderItems.length > 0 && (<CardFooter className="border-t pt-4"><Button onClick={handleSaveDraftAndGenerateWhatsApp} className="w-full bg-green-600 hover:bg-green-700 text-white"><MessageSquare className="mr-2 h-4 w-4" /> Simpan Draf & Buat Pesan WA</Button></CardFooter>)}</Card></div>
           </div>
@@ -132,7 +166,8 @@ export default function SupplierOrdersPage() {
           </TableBody></Table></div>) : (<div className="text-center py-10 text-muted-foreground"><ListOrdered className="mx-auto h-16 w-16 mb-4 opacity-50" /><p className="text-lg">Belum ada riwayat order.</p></div>)}
         </CardContent></Card></TabsContent>
       </Tabs>
-      {selectedOrderForDetail && (<Dialog open={isDetailOrderDialogOpen} onOpenChange={setIsDetailOrderDialogOpen}><DialogContent className="sm:max-w-lg max-h-[90vh] flex flex-col"><DialogHeader><DialogTitle>Detail Order: {selectedOrderForDetail.id}</DialogTitle><DialogDescription>Tanggal: {format(new Date(selectedOrderForDetail.orderDate), "dd MMM yyyy, HH:mm", { locale: localeID })} | Supplier: {selectedOrderForDetail.supplierName || '-'} <br/>Status: <Badge className={`${getStatusBadgeColor(selectedOrderForDetail.status)} text-white`}>{selectedOrderForDetail.status}</Badge></DialogDescription></DialogHeader><div className="flex-grow overflow-y-auto pr-2"><h4 className="font-semibold mb-2">Item Dipesan:</h4><Table><TableHeader><TableRow><TableHead>Nama Item</TableHead><TableHead>SKU</TableHead><TableHead className="text-center">Qty Order</TableHead></TableRow></TableHeader><TableBody>{selectedOrderForDetail.items.map(item => (<TableRow key={item.productId}><TableCell>{item.productName}</TableCell><TableCell className="font-mono text-xs">{item.sku}</TableCell><TableCell className="text-center">{item.orderQuantity}</TableCell></TableRow>))}</TableBody></Table><div className="mt-6 p-4 border-dashed border-2 border-amber-500 rounded-md bg-amber-50"><div className="flex items-center text-amber-700"><AlertTriangle className="h-6 w-6 mr-3 shrink-0" /><p className="text-xs">Fitur penerimaan barang & update stok akan di halaman "Penerimaan Barang".</p></div></div></div><DialogFooter className="mt-4 border-t pt-4"><DialogClose asChild><Button variant="outline">Tutup</Button></DialogClose>{selectedOrderForDetail.status === 'Draf Order' && (<Button onClick={async () => { const { error } = await supabase.from('supplierOrders').update({ status: 'Dipesan ke Supplier', updatedAt: new Date().toISOString() }).match({ id: selectedOrderForDetail.id }); if (error) toast({variant: "destructive", title: "Error"}); else {toast({title: "Status Order Diubah"}); fetchSupplierOrders(); setIsDetailOrderDialogOpen(false);}}} className="bg-blue-600 hover:bg-blue-700 text-white">Tandai "Dipesan"</Button>)}</DialogFooter></DialogContent></Dialog>)}
+      {selectedOrderForDetail && (<Dialog open={isDetailOrderDialogOpen} onOpenChange={setIsDetailOrderDialogOpen}><DialogContent className="sm:max-w-lg max-h-[90vh] flex flex-col"><DialogHeader><DialogTitle>Detail Order: {selectedOrderForDetail.id}</DialogTitle><DialogDescription>Tanggal: {format(new Date(selectedOrderForDetail.orderDate), "dd MMM yyyy, HH:mm", { locale: localeID })} | Supplier: {selectedOrderForDetail.supplierName || '-'} <br/>Status: <Badge className={`${getStatusBadgeColor(selectedOrderForDetail.status)} text-white`}>{selectedOrderForDetail.status}</Badge></DialogDescription></DialogHeader><div className="flex-grow overflow-y-auto pr-2"><h4 className="font-semibold mb-2">Item Dipesan:</h4><Table><TableHeader><TableRow><TableHead>Nama Item</TableHead><TableHead>SKU</TableHead><TableHead className="text-center">Qty Order</TableHead></TableRow></TableHeader><TableBody>{selectedOrderForDetail.items.map(item => (<TableRow key={item.productId}><TableCell>{item.productName}</TableCell><TableCell className="font-mono text-xs">{item.sku}</TableCell><TableCell className="text-center">{item.orderQuantity}</TableCell></TableRow>))}</TableBody></Table><div className="mt-6 p-4 border-dashed border-2 border-amber-500 rounded-md bg-amber-50"><div className="flex items-center text-amber-700"><AlertTriangle className="h-6 w-6 mr-3 shrink-0" /><p className="text-xs">Fitur penerimaan barang & update stok akan di halaman "Penerimaan Barang".</p></div></div></div><DialogFooter className="mt-4 border-t pt-4"><DialogClose asChild><Button variant="outline">Tutup</Button></DialogClose>{selectedOrderForDetail.status === 'Draf Order' && (<Button onClick={async () => { const { error } = await supabase.from('supplier_orders').update({ status: 'Dipesan ke Supplier', updated_at: new Date().toISOString() }).match({ id: selectedOrderForDetail.id }); if (error) toast({variant: "destructive", title: "Error"}); else {toast({title: "Status Order Diubah"}); fetchSupplierOrders(); setIsDetailOrderDialogOpen(false);}}} className="bg-blue-600 hover:bg-blue-700 text-white">Tandai "Dipesan"</Button>)}</DialogFooter></DialogContent></Dialog>)}
     </div>
   );
 }
+

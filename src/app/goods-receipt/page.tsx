@@ -37,17 +37,64 @@ export default function GoodsReceiptPage() {
     setIsLoading(true);
     try {
       const { data: invData, error: invError } = await supabase.from('products').select('*').neq('category', 'Jasa');
-      if (invError) throw invError;
-      const transformedInvData = invData.map(p => ({ ...p, sellingPrices: typeof p.sellingPrices === 'string' ? JSON.parse(p.sellingPrices) : p.sellingPrices }));
+      if (invError) {
+        console.error("Error fetching products for goods receipt (raw):", JSON.stringify(invError, null, 2));
+        let detailedMessage = "Gagal memuat produk dari server.";
+        if (invError.message) {
+          detailedMessage = invError.message;
+        } else if (typeof invError === 'object' && invError !== null && Object.keys(invError).length === 0) {
+          detailedMessage = "Query produk berhasil namun tidak ada data yang dikembalikan, atau akses ditolak. Periksa RLS Supabase untuk 'products'.";
+        } else if (typeof invError === 'object' && invError !== null) {
+          detailedMessage = `Terjadi kesalahan: ${JSON.stringify(invError)}. Periksa RLS Supabase.`;
+        }
+        toast({ variant: "destructive", title: "Kesalahan Database Produk", description: detailedMessage });
+        throw invError;
+      }
+      const transformedInvData = invData.map(p => ({ 
+          ...p, 
+          sellingPrices: typeof p.selling_prices === 'string' ? JSON.parse(p.selling_prices) : p.selling_prices,
+          costPrice: p.cost_price,
+          stockQuantity: p.stock_quantity,
+          lowStockThreshold: p.low_stock_threshold,
+          isActive: p.is_active,
+        }));
       setInventoryProducts(transformedInvData as Product[]);
 
-      const { data: orderData, error: orderError } = await supabase.from('supplierOrders').select('*')
+      const { data: orderData, error: orderError } = await supabase.from('supplier_orders').select('*')
         .in('status', ['Dipesan ke Supplier', 'Sebagian Diterima'])
-        .order('orderDate', { ascending: false });
-      if (orderError) throw orderError;
-      setSupplierOrdersList(orderData as SupplierOrder[]);
+        .order('order_date', { ascending: false });
+      if (orderError) {
+        console.error("Error fetching supplier orders (raw):", JSON.stringify(orderError, null, 2));
+        let detailedMessage = "Gagal memuat order supplier dari server.";
+        if (orderError.message) {
+          detailedMessage = orderError.message;
+        } else if (typeof orderError === 'object' && orderError !== null && Object.keys(orderError).length === 0) {
+          detailedMessage = "Query order berhasil namun tidak ada data yang dikembalikan, atau akses ditolak. Periksa RLS Supabase untuk 'supplier_orders'.";
+        } else if (typeof orderError === 'object' && orderError !== null) {
+          detailedMessage = `Terjadi kesalahan: ${JSON.stringify(orderError)}. Periksa RLS Supabase.`;
+        }
+        toast({ variant: "destructive", title: "Kesalahan Database Order", description: detailedMessage });
+        throw orderError;
+      }
+      const transformedOrderData = orderData.map(so => ({
+        ...so,
+        id: String(so.id),
+        items: typeof so.items === 'string' ? JSON.parse(so.items) : so.items,
+        orderDate: so.order_date,
+        totalOrderQuantity: so.total_order_quantity,
+        supplierName: so.supplier_name,
+        receivedDate: so.received_date,
+        invoiceNumber: so.invoice_number,
+        receivingNotes: so.receiving_notes,
+        createdAt: so.created_at,
+        updatedAt: so.updated_at,
+      }));
+      setSupplierOrdersList(transformedOrderData as SupplierOrder[]);
     } catch (error: any) {
-      toast({ variant: "destructive", title: "Gagal Memuat Data Awal", description: error.message });
+      // Toast for specific errors already handled above. This is a fallback.
+      if (!toast.toasts.find(t => t.title?.toString().includes("Kesalahan Database"))) {
+        toast({ variant: "destructive", title: "Gagal Memuat Data Awal", description: "Terjadi kesalahan umum." });
+      }
     }
     setIsLoading(false);
   }, [toast]);
@@ -69,7 +116,7 @@ export default function GoodsReceiptPage() {
     order.items.forEach(item => {
       const productInInventory = inventoryProducts.find(p => p.id === item.productId);
       const remainingToReceive = item.orderQuantity - (item.quantityReceived || 0);
-      initialDetails[String(item.productId)] = { // Ensure productId is string for key
+      initialDetails[String(item.productId)] = {
         quantityReceivedThisSession: Math.max(0, remainingToReceive).toString(),
         actualCostPriceThisSession: item.actualCostPrice?.toString() || productInInventory?.costPrice.toString() || '0',
       };
@@ -87,9 +134,8 @@ export default function GoodsReceiptPage() {
     if (!selectedOrder) return;
     let sellingPricesAdjusted = false;
 
-    // Start a transaction or use RPC for atomicity in Supabase if needed
-    // For simplicity here, we'll do sequential updates and log errors.
     try {
+      const productUpdates = [];
       const updatedOrderItems = selectedOrder.items.map(item => {
         const detail = itemReceiptDetails[String(item.productId)];
         const qtyReceivedNum = parseInt(detail.quantityReceivedThisSession, 10);
@@ -110,32 +156,38 @@ export default function GoodsReceiptPage() {
             sellingPricesAdjusted = true;
           }
 
-          const { error: productUpdateError } = await supabase.from('products')
-            .update({
-              stockQuantity: (productInInventory.stockQuantity || 0) + qtyReceivedNum,
-              costPrice: newActualCostPrice,
-              sellingPrices: currentProductSellingPrices,
-              updatedAt: new Date().toISOString(),
-            }).match({ id: item.productId });
-          if (productUpdateError) throw new Error(`Gagal update produk ${item.productName}: ${productUpdateError.message}`);
+          productUpdates.push(
+            supabase.from('products')
+              .update({
+                stock_quantity: (productInInventory.stockQuantity || 0) + qtyReceivedNum,
+                cost_price: newActualCostPrice,
+                selling_prices: currentProductSellingPrices,
+                updated_at: new Date().toISOString(),
+              }).match({ id: item.productId })
+          );
         }
         return { ...item, quantityReceived: (item.quantityReceived || 0) + qtyReceivedNum, actualCostPrice: costPriceNum };
       });
 
+      const productUpdateResults = await Promise.all(productUpdates);
+      for (const result of productUpdateResults) {
+        if (result.error) throw new Error(`Gagal update produk: ${result.error.message}`);
+      }
+
       const isOrderComplete = updatedOrderItems.every(item => (item.quantityReceived || 0) >= item.orderQuantity);
       const newOrderStatus: SupplierOrderStatus = isOrderComplete ? 'Diterima Lengkap' : 'Sebagian Diterima';
 
-      const { error: orderUpdateError } = await supabase.from('supplierOrders')
+      const { error: orderUpdateError } = await supabase.from('supplier_orders')
         .update({
-          items: updatedOrderItems, status: newOrderStatus, invoiceNumber: currentInvoiceNumber,
-          receivingNotes: currentReceivingNotes, receivedDate: new Date().toISOString(), updatedAt: new Date().toISOString(),
+          items: updatedOrderItems, status: newOrderStatus, invoice_number: currentInvoiceNumber,
+          receiving_notes: currentReceivingNotes, received_date: new Date().toISOString(), updated_at: new Date().toISOString(),
         }).match({ id: selectedOrder.id });
       if (orderUpdateError) throw new Error(`Gagal update order: ${orderUpdateError.message}`);
 
       let toastDescription = `Stok & harga modal diupdate. Status: ${newOrderStatus}.`;
       if (sellingPricesAdjusted) toastDescription += " Harga jual disesuaikan.";
       toast({ title: "Penerimaan Berhasil", description: toastDescription });
-      fetchInitialData(); // Refresh all data
+      fetchInitialData(); 
       setSelectedOrder(null);
 
     } catch (error: any) {
@@ -143,11 +195,10 @@ export default function GoodsReceiptPage() {
     }
   };
 
-  const getStatusBadgeColor = (status: SupplierOrderStatus) => { /* Unchanged */ switch (status) { case 'Draf Order': return 'bg-gray-400'; case 'Dipesan ke Supplier': return 'bg-blue-500'; case 'Sebagian Diterima': return 'bg-yellow-500'; case 'Diterima Lengkap': return 'bg-green-500'; case 'Dibatalkan': return 'bg-red-500'; default: return 'bg-gray-400'; } };
+  const getStatusBadgeColor = (status: SupplierOrderStatus) => { switch (status) { case 'Draf Order': return 'bg-gray-400'; case 'Dipesan ke Supplier': return 'bg-blue-500'; case 'Sebagian Diterima': return 'bg-yellow-500'; case 'Diterima Lengkap': return 'bg-green-500'; case 'Dibatalkan': return 'bg-red-500'; default: return 'bg-gray-400'; } };
 
-  if (isLoading) { return <div className="flex justify-center items-center h-screen"><p>Memuat data...</p></div>; }
+  if (isLoading && inventoryProducts.length === 0 && supplierOrdersList.length === 0) { return <div className="flex justify-center items-center h-screen"><p>Memuat data...</p></div>; }
 
-  // JSX structure remains largely the same
   return (
     <div className="space-y-6">
       <PageHeader title="Penerimaan Barang dari Supplier" description="Proses penerimaan barang dan update stok."/>
@@ -165,3 +216,4 @@ export default function GoodsReceiptPage() {
     </div>
   );
 }
+

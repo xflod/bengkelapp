@@ -60,17 +60,33 @@ export default function SalesPage() {
       const { data, error } = await supabase
         .from('products')
         .select('*')
-        .eq('isActive', true)
-        .filter('sellingPrices', 'cs', '[{"tierName":"default"}]'); // Filter by default price tier existence
+        .eq('is_active', true)
+        .filter('selling_prices', 'cs', '[{"tierName":"default"}]');
       
       if (error) {
-        console.error("Error fetching products:", error);
-        toast({variant: "destructive", title: "Gagal Memuat Inventaris", description: error.message});
+        console.error("Error fetching products (raw):", JSON.stringify(error, null, 2));
+        let detailedMessage = "Gagal memuat inventaris dari server.";
+        if (error.message) {
+          detailedMessage = error.message;
+        } else if (typeof error === 'object' && error !== null && Object.keys(error).length === 0) {
+          detailedMessage = "Query produk berhasil namun tidak ada data yang dikembalikan, atau akses ditolak. Mohon periksa Row Level Security (RLS) di Supabase untuk tabel 'products' dan pastikan tabelnya ada serta memiliki harga default.";
+        } else if (typeof error === 'object' && error !== null) {
+          detailedMessage = `Terjadi kesalahan: ${JSON.stringify(error)}. Periksa RLS Supabase.`;
+        }
+        toast({variant: "destructive", title: "Gagal Memuat Inventaris", description: detailedMessage});
         setInventoryProducts([]);
       } else {
         const transformedData = data.map(p => ({
           ...p,
-          sellingPrices: typeof p.sellingPrices === 'string' ? JSON.parse(p.sellingPrices) : p.sellingPrices,
+          sellingPrices: typeof p.selling_prices === 'string' ? JSON.parse(p.selling_prices) : p.selling_prices,
+          costPrice: p.cost_price,
+          stockQuantity: p.stock_quantity,
+          lowStockThreshold: p.low_stock_threshold,
+          isActive: p.is_active,
+          createdAt: p.created_at,
+          updatedAt: p.updated_at,
+          supplierId: p.supplier_id,
+          imageUrl: p.image_url,
         }));
         setInventoryProducts(transformedData as Product[]);
         setFilteredProducts(transformedData as Product[]);
@@ -87,7 +103,7 @@ export default function SalesPage() {
     setFilteredProducts(results);
   }, [searchTerm, inventoryProducts]);
 
-  React.useEffect(() => { // Camera effect unchanged
+  React.useEffect(() => { 
     if (isCameraOpen) {
       const getCameraPermission = async () => {
         try {
@@ -135,7 +151,7 @@ export default function SalesPage() {
     });
     toast({ title: "Ditambahkan ke Keranjang", description: `${product.name} telah ditambahkan.` });
   };
-  // handleUpdateQuantity, handleRemoveFromCart, calculateSubtotal, calculateFinalTotal, openPaymentDialog, handleBarcodeScanned remain similar
+  
   const handleUpdateQuantity = (productId: string, newQuantity: number) => {
     const productInCart = inventoryProducts.find(p => p.id === productId);
     if (!productInCart) return;
@@ -162,7 +178,7 @@ export default function SalesPage() {
 
   const completeTransaction = async (paymentType: 'Tunai' | 'Transfer', details: string) => {
     const transactionDate = new Date();
-    const transactionId = `INV-${transactionDate.getTime()}`; // Client-side ID, Supabase will have its own primary key
+    const transactionId = `INV-${transactionDate.getTime()}`; 
     const currentSubtotal = calculateSubtotal();
     const currentFinalTotal = calculateFinalTotal();
     const currentCashReceived = parseFloat(cashReceived) || 0;
@@ -180,24 +196,22 @@ export default function SalesPage() {
       };
     });
 
-    const transactionForReport: Omit<SaleTransactionForReport, 'id'> = { // Omit 'id' as Supabase will generate it
-      transaction_id_client: transactionId, // Store client-generated one if needed for display/receipt
+    const transactionForReportSupabase = { 
+      transaction_id_client: transactionId, 
       date: transactionDate.toISOString(), items: reportItems, subtotal: currentSubtotal,
-      discountApplied: actualDiscount, finalAmount: currentFinalTotal,
-      totalCOGS: reportItems.reduce((sum, item) => sum + item.totalCOGS, 0),
-      totalProfit: currentFinalTotal - reportItems.reduce((sum, item) => sum + item.totalCOGS, 0),
-      paymentMethod: paymentType, customerName: "Pelanggan", type: 'Regular',
-      createdAt: transactionDate.toISOString(),
+      discount_applied: actualDiscount, final_amount: currentFinalTotal,
+      total_cogs: reportItems.reduce((sum, item) => sum + item.totalCOGS, 0),
+      total_profit: currentFinalTotal - reportItems.reduce((sum, item) => sum + item.totalCOGS, 0),
+      payment_method: paymentType, customer_name: "Pelanggan", type: 'Regular',
+      created_at: transactionDate.toISOString(),
     };
 
-    // Save transaction to Supabase
-    const { error: saleError } = await supabase.from('salesTransactions').insert([transactionForReport]);
+    const { error: saleError } = await supabase.from('sales_transactions').insert([transactionForReportSupabase]);
     if (saleError) {
       toast({ variant: "destructive", title: "Gagal Menyimpan Transaksi", description: saleError.message });
       return;
     }
 
-    // Update stock
     for (const cartItem of cart) {
       if (cartItem.category !== 'Jasa') {
         const product = inventoryProducts.find(p => p.id === cartItem.productId);
@@ -205,20 +219,25 @@ export default function SalesPage() {
           const newStock = product.stockQuantity - cartItem.quantity;
           const { error: stockError } = await supabase
             .from('products')
-            .update({ stockQuantity: newStock, updatedAt: new Date().toISOString() })
+            .update({ stock_quantity: newStock, updated_at: new Date().toISOString() })
             .match({ id: cartItem.productId });
           if (stockError) {
             console.error(`Failed to update stock for ${cartItem.productName}:`, stockError);
-            // Potentially add to a list of failed stock updates to show user or retry
           }
         }
       }
     }
     
-    // Refresh inventory products state after stock updates
-    const { data: updatedProds, error: fetchError } = await supabase.from('products').select('*').eq('isActive', true);
+    const { data: updatedProds, error: fetchError } = await supabase.from('products').select('*').eq('is_active', true);
     if (!fetchError && updatedProds) {
-        const transformedData = updatedProds.map(p => ({ ...p, sellingPrices: typeof p.sellingPrices === 'string' ? JSON.parse(p.sellingPrices) : p.sellingPrices, }));
+        const transformedData = updatedProds.map(p => ({ 
+            ...p, 
+            sellingPrices: typeof p.selling_prices === 'string' ? JSON.parse(p.selling_prices) : p.selling_prices,
+            costPrice: p.cost_price,
+            stockQuantity: p.stock_quantity,
+            lowStockThreshold: p.low_stock_threshold,
+            isActive: p.is_active,
+         }));
         setInventoryProducts(transformedData as Product[]);
     }
 
@@ -236,10 +255,10 @@ export default function SalesPage() {
     setIsReceiptModalOpen(true);
   }
 
-  const confirmCashPayment = () => { /* unchanged */ const finalTotal = calculateFinalTotal(); const received = parseFloat(cashReceived) || 0; if (received < finalTotal) { toast({ variant: "destructive", title: "Uang Kurang" }); return; } completeTransaction("Tunai", `Kembalian: Rp ${changeCalculated.toLocaleString()}`); };
-  const confirmTransferPayment = () => { /* unchanged */ completeTransaction("Transfer", "Menunggu konfirmasi transfer."); };
-  const handleDownloadReceipt = () => { /* unchanged */ if (receiptRef.current && HTML2Canvas) { HTML2Canvas.default(receiptRef.current, { scale: 2, backgroundColor: '#ffffff' }).then(canvas => { const image = canvas.toDataURL("image/png", 0.8); const link = document.createElement('a'); link.href = image; link.download = `nota_${receiptDetails?.transactionId || 'transaksi'}.png`; document.body.appendChild(link); link.click(); document.body.removeChild(link); toast({ title: "Nota Diunduh" }); }).catch(err => { toast({ variant: "destructive", title: "Gagal Unduh Nota" }); }); } };
-  const handleShareToWhatsApp = () => { /* unchanged */ if (!receiptDetails) return; let message = `*Nota Transaksi BengkelKu*\n\nID Transaksi: ${receiptDetails.transactionId}\nTanggal: ${receiptDetails.date}\n`; if (receiptDetails.customerName) message += `Pelanggan: ${receiptDetails.customerName}\n`; message += `------------------------------------\n`; receiptDetails.items.forEach(item => { message += `${item.productName} (x${item.quantity})\n  Rp ${item.unitPrice.toLocaleString()} x ${item.quantity} = Rp ${item.totalPrice.toLocaleString()}\n`; }); message += `------------------------------------\nSubtotal: Rp ${receiptDetails.subtotal.toLocaleString()}\n`; if (receiptDetails.discount > 0) message += `Diskon: Rp ${receiptDetails.discount.toLocaleString()}\n`; message += `*Total Bayar: Rp ${receiptDetails.finalTotal.toLocaleString()}*\nMetode Pembayaran: ${receiptDetails.paymentMethod}\n`; if (receiptDetails.paymentMethod === 'Tunai') { message += `Uang Diterima: Rp ${receiptDetails.cashReceived?.toLocaleString() || 0}\nKembalian: Rp ${receiptDetails.changeCalculated?.toLocaleString() || 0}\n`; } message += `------------------------------------\nTerima kasih atas kunjungan Anda!\n\n_Nota ini juga dapat diunduh._`; const whatsappUrl = `https://api.whatsapp.com/send?text=${encodeURIComponent(message)}`; window.open(whatsappUrl, '_blank'); toast({ title: "Bagikan ke WhatsApp" }); };
+  const confirmCashPayment = () => { const finalTotal = calculateFinalTotal(); const received = parseFloat(cashReceived) || 0; if (received < finalTotal) { toast({ variant: "destructive", title: "Uang Kurang" }); return; } completeTransaction("Tunai", `Kembalian: Rp ${changeCalculated.toLocaleString()}`); };
+  const confirmTransferPayment = () => { completeTransaction("Transfer", "Menunggu konfirmasi transfer."); };
+  const handleDownloadReceipt = () => { if (receiptRef.current && HTML2Canvas) { HTML2Canvas.default(receiptRef.current, { scale: 2, backgroundColor: '#ffffff' }).then(canvas => { const image = canvas.toDataURL("image/png", 0.8); const link = document.createElement('a'); link.href = image; link.download = `nota_${receiptDetails?.transactionId || 'transaksi'}.png`; document.body.appendChild(link); link.click(); document.body.removeChild(link); toast({ title: "Nota Diunduh" }); }).catch(err => { toast({ variant: "destructive", title: "Gagal Unduh Nota" }); }); } };
+  const handleShareToWhatsApp = () => { if (!receiptDetails) return; let message = `*Nota Transaksi BengkelKu*\n\nID Transaksi: ${receiptDetails.transactionId}\nTanggal: ${receiptDetails.date}\n`; if (receiptDetails.customerName) message += `Pelanggan: ${receiptDetails.customerName}\n`; message += `------------------------------------\n`; receiptDetails.items.forEach(item => { message += `${item.productName} (x${item.quantity})\n  Rp ${item.unitPrice.toLocaleString()} x ${item.quantity} = Rp ${item.totalPrice.toLocaleString()}\n`; }); message += `------------------------------------\nSubtotal: Rp ${receiptDetails.subtotal.toLocaleString()}\n`; if (receiptDetails.discount > 0) message += `Diskon: Rp ${receiptDetails.discount.toLocaleString()}\n`; message += `*Total Bayar: Rp ${receiptDetails.finalTotal.toLocaleString()}*\nMetode Pembayaran: ${receiptDetails.paymentMethod}\n`; if (receiptDetails.paymentMethod === 'Tunai') { message += `Uang Diterima: Rp ${receiptDetails.cashReceived?.toLocaleString() || 0}\nKembalian: Rp ${receiptDetails.changeCalculated?.toLocaleString() || 0}\n`; } message += `------------------------------------\nTerima kasih atas kunjungan Anda!\n\n_Nota ini juga dapat diunduh._`; const whatsappUrl = `https://api.whatsapp.com/send?text=${encodeURIComponent(message)}`; window.open(whatsappUrl, '_blank'); toast({ title: "Bagikan ke WhatsApp" }); };
 
   const subtotalForCart = calculateSubtotal();
   const finalTotalForPayment = calculateFinalTotal();
@@ -309,3 +328,4 @@ export default function SalesPage() {
     </div>
   );
 }
+
