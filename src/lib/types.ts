@@ -88,8 +88,33 @@ export interface Employee {
   status: EmployeeStatus;
   payrollFrequency: PayrollFrequency;
   baseSalary: number;
-  loanNotes?: string; 
+  loanNotes?: string; // Existing field, will be less used with new system
   performanceNotes?: string;
   createdAt: string;
   updatedAt: string;
+}
+
+// Loan Management Types
+export type LoanStatus = 'Aktif' | 'Lunas' | 'Sebagian Lunas' | 'Dihapuskan';
+
+export interface Loan {
+  id: string;
+  employeeId: string;
+  loanDate: string; // ISO Date string
+  loanAmount: number;
+  reason?: string;
+  status: LoanStatus;
+  remainingBalance: number;
+  repaymentNotes?: string; // General notes about repayment agreement
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface LoanInstallment {
+  id: string;
+  loanId: string;
+  paymentDate: string; // ISO Date string
+  amountPaid: number;
+  notes?: string;
+  createdAt: string;
 }
