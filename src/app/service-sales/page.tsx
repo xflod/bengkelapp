@@ -535,7 +535,7 @@ export default function ServiceSalesPage() {
               <div className="flex flex-wrap gap-2">
                 <Button variant="outline" onClick={() => handlePresetCash(subtotal)} className="flex-1 text-xs min-w-[80px]">Uang Pas</Button>
                 <Button variant="outline" onClick={() => handlePresetCash(50000)} className="flex-1 text-xs min-w-[80px]">Rp 50rb</Button>
-                <Button variant="outline" onClick={()={() => handlePresetCash(100000)} className="flex-1 text-xs min-w-[80px]">Rp 100rb</Button>
+                <Button variant="outline" onClick={() => handlePresetCash(100000)} className="flex-1 text-xs min-w-[80px]">Rp 100rb</Button>
               </div>
                <div className="space-y-1 text-right">
                  <p className="text-sm whitespace-nowrap">Total: Rp {subtotal.toLocaleString()}</p>
