@@ -9,8 +9,11 @@ import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle }
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { useToast } from "@/hooks/use-toast";
-import type { Product, SaleItem } from "@/lib/types"; // Assuming Product has id, name, sellingPrices, stockQuantity
-import { Search, Camera, PlusCircle, MinusCircle, Trash2, CreditCard, ShoppingCart, XCircle } from "lucide-react";
+import type { Product, SaleItem } from "@/lib/types";
+import { Search, Camera, PlusCircle, MinusCircle, Trash2, CreditCard, ShoppingCart, XCircle, HandCoins, Landmark } from "lucide-react";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter, DialogClose } from "@/components/ui/dialog";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Label } from "@/components/ui/label";
 
 // Mock Product Data - In a real app, this would come from a database/API
 const MOCK_PRODUCTS: Product[] = [
@@ -34,6 +37,11 @@ export default function SalesPage() {
   const [isCameraOpen, setIsCameraOpen] = React.useState(false);
   const [hasCameraPermission, setHasCameraPermission] = React.useState<boolean | null>(null);
   const [stream, setStream] = React.useState<MediaStream | null>(null);
+
+  const [isPaymentDialogOpen, setIsPaymentDialogOpen] = React.useState(false);
+  const [paymentMethodTab, setPaymentMethodTab] = React.useState<'cash' | 'transfer'>('cash');
+  const [cashReceived, setCashReceived] = React.useState("");
+  const [changeCalculated, setChangeCalculated] = React.useState(0);
 
   React.useEffect(() => {
     const results = MOCK_PRODUCTS.filter(product =>
@@ -61,12 +69,11 @@ export default function SalesPage() {
             title: 'Akses Kamera Ditolak',
             description: 'Mohon izinkan akses kamera di pengaturan browser Anda untuk menggunakan fitur ini.',
           });
-          setIsCameraOpen(false); // Close camera view if permission denied
+          setIsCameraOpen(false);
         }
       };
       getCameraPermission();
     } else {
-      // Stop camera stream when closing
       if (stream) {
         stream.getTracks().forEach(track => track.stop());
         setStream(null);
@@ -76,22 +83,19 @@ export default function SalesPage() {
       }
       setHasCameraPermission(null);
     }
-    // Cleanup function to stop tracks when component unmounts or isCameraOpen changes
     return () => {
       if (stream) {
         stream.getTracks().forEach(track => track.stop());
       }
     };
-  }, [isCameraOpen, toast]); // Removed stream from dependencies to avoid loop
+  }, [isCameraOpen, toast]);
 
   const handleAddToCart = (product: Product) => {
     if (product.sellingPrices.length === 0) {
       toast({ variant: "destructive", title: "Harga Tidak Tersedia", description: `Produk ${product.name} tidak memiliki harga jual.` });
       return;
     }
-    
     const price = product.sellingPrices[0].price;
-
     setCart(prevCart => {
       const existingItem = prevCart.find(item => item.productId === product.id);
       if (existingItem) {
@@ -118,12 +122,10 @@ export default function SalesPage() {
   const handleUpdateQuantity = (productId: string, newQuantity: number) => {
     const productInCart = MOCK_PRODUCTS.find(p => p.id === productId);
     if (!productInCart) return;
-
     if (newQuantity <= 0) {
       handleRemoveFromCart(productId);
       return;
     }
-    
     if (newQuantity > productInCart.stockQuantity) {
       toast({ variant: "destructive", title: "Stok Tidak Cukup", description: `Stok ${productInCart.name} hanya tersisa ${productInCart.stockQuantity}.` });
       setCart(prevCart =>
@@ -133,7 +135,6 @@ export default function SalesPage() {
       );
       return;
     }
-
     setCart(prevCart =>
       prevCart.map(item =>
         item.productId === productId ? { ...item, quantity: newQuantity, totalPrice: newQuantity * item.unitPrice } : item
@@ -146,42 +147,77 @@ export default function SalesPage() {
     toast({ title: "Dihapus dari Keranjang", description: `Item telah dihapus.` });
   };
 
-  const calculateSubtotal = () => {
+  const calculateSubtotal = React.useCallback(() => {
     return cart.reduce((total, item) => total + item.totalPrice, 0);
-  };
+  }, [cart]);
 
-  const handleProcessPayment = () => {
+  const openPaymentDialog = () => {
     if (cart.length === 0) {
       toast({ variant: "destructive", title: "Keranjang Kosong", description: "Tambahkan item ke keranjang sebelum melanjutkan." });
       return;
     }
-    // In a real app, this would navigate to a payment page or open a payment modal
-    toast({ title: "Pembayaran Diproses", description: `Total: Rp ${calculateSubtotal().toLocaleString()}` });
-    setCart([]); // Clear cart after payment
-    setSearchTerm("");
+    setCashReceived("");
+    setChangeCalculated(0);
+    setPaymentMethodTab('cash');
+    setIsPaymentDialogOpen(true);
   };
-
+  
   const handleBarcodeScanned = (barcode: string) => {
-    // Simulate finding product by barcode
     const product = MOCK_PRODUCTS.find(p => p.id.toLowerCase() === barcode.toLowerCase());
     if (product) {
       handleAddToCart(product);
-      setSearchTerm(""); // Clear search after successful scan
-      setIsCameraOpen(false); // Close camera after scan
+      setSearchTerm(""); 
+      setIsCameraOpen(false); 
     } else {
       toast({ variant: "destructive", title: "Produk Tidak Ditemukan", description: `Barcode ${barcode} tidak cocok dengan produk manapun.` });
     }
   };
   
-  // Simulate barcode scan via search input when camera is open for demo
   React.useEffect(() => {
-    if (isCameraOpen && searchTerm.length > 3 && searchTerm.startsWith("BAR")) { // Simulate a barcode format
-       // This is a simple simulation. A real app would use a barcode scanning library.
+    if (isCameraOpen && searchTerm.length > 3 && searchTerm.startsWith("BAR")) { 
       toast({ title: "Barcode Terdeteksi (Simulasi)", description: `Mencari produk dengan barcode: ${searchTerm}` });
       handleBarcodeScanned(searchTerm);
     }
   }, [searchTerm, isCameraOpen]);
 
+  React.useEffect(() => {
+    const subtotal = calculateSubtotal();
+    const received = parseFloat(cashReceived) || 0;
+    if (paymentMethodTab === 'cash' && received >= subtotal) {
+      setChangeCalculated(received - subtotal);
+    } else if (paymentMethodTab === 'cash') {
+      setChangeCalculated(0); // Or handle as negative if you want to show deficit
+    }
+  }, [cashReceived, paymentMethodTab, calculateSubtotal]);
+
+  const handlePresetCash = (amount: number) => {
+    setCashReceived(String(amount));
+  };
+
+  const completeTransaction = (paymentType: string, details: string) => {
+    toast({ title: "Transaksi Berhasil", description: `${paymentType}. ${details}` });
+    setCart([]);
+    setSearchTerm("");
+    setIsPaymentDialogOpen(false);
+    setCashReceived("");
+    setChangeCalculated(0);
+  }
+
+  const confirmCashPayment = () => {
+    const subtotal = calculateSubtotal();
+    const received = parseFloat(cashReceived) || 0;
+    if (received < subtotal) {
+      toast({ variant: "destructive", title: "Uang Kurang", description: "Jumlah uang yang diterima kurang dari total belanja." });
+      return;
+    }
+    completeTransaction("Pembayaran Tunai", `Kembalian: Rp ${changeCalculated.toLocaleString()}`);
+  };
+
+  const confirmTransferPayment = () => {
+    completeTransaction("Pembayaran Transfer", "Menunggu konfirmasi transfer dari admin.");
+  };
+
+  const subtotal = calculateSubtotal();
 
   return (
     <div className="space-y-6">
@@ -189,15 +225,14 @@ export default function SalesPage() {
         title="Manajemen Penjualan (POS)"
         description="Catat transaksi penjualan jasa dan barang."
         actions={
-          <Button onClick={handleProcessPayment} className="bg-primary hover:bg-primary/90 text-primary-foreground">
+          <Button onClick={openPaymentDialog} className="bg-primary hover:bg-primary/90 text-primary-foreground" disabled={cart.length === 0}>
             <CreditCard className="mr-2 h-4 w-4" />
-            Bayar (Rp {calculateSubtotal().toLocaleString()})
+            Bayar (Rp {subtotal.toLocaleString()})
           </Button>
         }
       />
 
       <div className="flex flex-col md:flex-row gap-6">
-        {/* Left Column: Product Search and List */}
         <div className="md:w-2/3 space-y-4">
           <Card className="shadow-md">
             <CardHeader>
@@ -289,9 +324,8 @@ export default function SalesPage() {
           </Card>
         </div>
 
-        {/* Right Column: Cart */}
         <div className="md:w-1/3 space-y-4">
-          <Card className="shadow-md sticky top-20"> {/* sticky for better UX on scroll */}
+          <Card className="shadow-md sticky top-20">
             <CardHeader>
               <CardTitle>Keranjang Belanja</CardTitle>
               <CardDescription>Total Item: {cart.reduce((sum, item) => sum + item.quantity, 0)}</CardDescription>
@@ -342,17 +376,88 @@ export default function SalesPage() {
               <CardFooter className="flex flex-col space-y-2 pt-4 border-t">
                 <div className="flex justify-between w-full font-semibold text-lg">
                   <span>Total Akhir:</span>
-                  <span>Rp {calculateSubtotal().toLocaleString()}</span>
+                  <span>Rp {subtotal.toLocaleString()}</span>
                 </div>
-                <Button onClick={handleProcessPayment} className="w-full bg-primary hover:bg-primary/90 text-primary-foreground">
-                  <CreditCard className="mr-2 h-4 w-4" />
-                  Lanjutkan ke Pembayaran
-                </Button>
+                {/* Button "Lanjutkan ke Pembayaran" dihapus dari sini, karena PageHeader button yang dipakai */}
               </CardFooter>
             )}
           </Card>
         </div>
       </div>
+
+      <Dialog open={isPaymentDialogOpen} onOpenChange={setIsPaymentDialogOpen}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>Proses Pembayaran</DialogTitle>
+            <DialogDescription>
+              Total Belanja: <span className="font-semibold">Rp {subtotal.toLocaleString()}</span>
+            </DialogDescription>
+          </DialogHeader>
+          
+          <Tabs value={paymentMethodTab} onValueChange={(value) => setPaymentMethodTab(value as 'cash' | 'transfer')} className="w-full">
+            <TabsList className="grid w-full grid-cols-2">
+              <TabsTrigger value="cash"><HandCoins className="mr-2 h-4 w-4" />Tunai</TabsTrigger>
+              <TabsTrigger value="transfer"><Landmark className="mr-2 h-4 w-4" />Transfer</TabsTrigger>
+            </TabsList>
+            <TabsContent value="cash" className="space-y-4 pt-4">
+              <div className="space-y-2">
+                <Label htmlFor="cashReceived">Jumlah Uang Diterima (Rp)</Label>
+                <Input 
+                  id="cashReceived" 
+                  type="number" 
+                  value={cashReceived}
+                  onChange={(e) => setCashReceived(e.target.value)}
+                  placeholder="e.g. 150000"
+                />
+              </div>
+              <div className="flex gap-2">
+                <Button variant="outline" onClick={() => handlePresetCash(50000)} className="flex-1">Rp 50.000</Button>
+                <Button variant="outline" onClick={() => handlePresetCash(100000)} className="flex-1">Rp 100.000</Button>
+              </div>
+               <div className="space-y-1">
+                 <p className="text-sm font-medium">Total Belanja: Rp {subtotal.toLocaleString()}</p>
+                 <p className="text-sm">Uang Diterima: Rp {(parseFloat(cashReceived) || 0).toLocaleString()}</p>
+                <p className="text-lg font-semibold">
+                  Kembalian: Rp {changeCalculated >= 0 ? changeCalculated.toLocaleString() : '0'}
+                </p>
+                {(parseFloat(cashReceived) || 0) < subtotal && cashReceived !== "" && (
+                  <p className="text-sm text-destructive">Uang tunai yang dimasukkan kurang.</p>
+                )}
+              </div>
+              <Button 
+                onClick={confirmCashPayment} 
+                className="w-full bg-primary hover:bg-primary/90 text-primary-foreground"
+                disabled={(parseFloat(cashReceived) || 0) < subtotal}
+              >
+                Konfirmasi Pembayaran Tunai
+              </Button>
+            </TabsContent>
+            <TabsContent value="transfer" className="space-y-4 pt-4">
+              <p className="text-sm text-muted-foreground">
+                Silakan lakukan transfer sejumlah <span className="font-semibold text-foreground">Rp {subtotal.toLocaleString()}</span> ke rekening berikut:
+              </p>
+              <div className="p-3 bg-muted rounded-md">
+                <p className="font-medium">Bank XYZ</p>
+                <p>No. Rekening: <span className="font-semibold">123-456-7890</span></p>
+                <p>Atas Nama: <span className="font-semibold">BengkelKu Jaya</span></p>
+              </div>
+              <Button onClick={confirmTransferPayment} className="w-full bg-primary hover:bg-primary/90 text-primary-foreground">
+                Sudah Transfer & Konfirmasi
+              </Button>
+            </TabsContent>
+          </Tabs>
+
+          <DialogFooter className="sm:justify-start mt-4">
+            <DialogClose asChild>
+              <Button type="button" variant="outline">
+                Batal
+              </Button>
+            </DialogClose>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
     </div>
   );
 }
+
