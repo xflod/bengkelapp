@@ -13,7 +13,8 @@ import {
   ClipboardCheck, 
   ShoppingBag,
   ArchiveRestore,
-  BookOpenText // Added for Finance/Ledger
+  BookOpenText,
+  PiggyBank // Added PiggyBank icon
 } from 'lucide-react';
 
 export const NAV_ITEMS: NavItem[] = [
@@ -68,9 +69,14 @@ export const NAV_ITEMS: NavItem[] = [
     icon: Users,
   },
   {
-    title: 'Buku Keuangan', // New Menu Item for Financial Ledger
+    title: 'Buku Keuangan',
     href: '/finance/accounts-ledger',
     icon: BookOpenText,
+  },
+  {
+    title: 'Buku Tabungan', // New Menu Item for Savings
+    href: '/finance/savings',
+    icon: PiggyBank,
   },
   {
     title: 'Laporan',
