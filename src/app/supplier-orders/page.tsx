@@ -11,12 +11,14 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { Badge } from "@/components/ui/badge";
 import { useToast } from "@/hooks/use-toast";
-import type { Product, SupplierOrderItem, SupplierOrder, SupplierOrderStatus } from "@/lib/types";
+import type { Product, SupplierOrderItem, SupplierOrder, SupplierOrderStatus, Supplier } from "@/lib/types";
 import { supabase } from '@/lib/supabase';
 import { ShoppingBag, Search, Filter, PlusCircle, MinusCircle, Trash2, MessageSquare, PackagePlus, ListOrdered, Eye, AlertTriangle } from "lucide-react";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { format, parseISO } from 'date-fns';
 import { id as localeID } from 'date-fns/locale';
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { ScrollArea } from "@/components/ui/scroll-area";
 
 const DynamicDialog = dynamic(() => import('@/components/ui/dialog').then(mod => mod.Dialog), { ssr: false });
 const DynamicDialogContent = dynamic(() => import('@/components/ui/dialog').then(mod => mod.DialogContent), { ssr: false });
@@ -42,7 +44,12 @@ export default function SupplierOrdersPage() {
   const [supplierOrdersList, setSupplierOrdersList] = useState<SupplierOrder[]>([]);
   const [selectedOrderForDetail, setSelectedOrderForDetail] = useState<SupplierOrder | null>(null);
   const [isDetailOrderDialogOpen, setIsDetailOrderDialogOpen] = useState(false);
+  
   const [supplierName, setSupplierName] = useState(''); 
+  const [allSuppliers, setAllSuppliers] = useState<Supplier[]>([]);
+  const [selectedSupplier, setSelectedSupplier] = useState<Supplier | null>(null);
+  const [isSupplierPopoverOpen, setIsSupplierPopoverOpen] = useState(false);
+
 
   const fetchInventory = useCallback(async () => {
     setIsLoading(true);
@@ -108,14 +115,35 @@ export default function SupplierOrdersPage() {
     setIsLoading(false);
   }, [toast]);
 
-  useEffect(() => { fetchInventory(); fetchSupplierOrders(); }, [fetchInventory, fetchSupplierOrders]);
+  const fetchAllSuppliers = useCallback(async () => {
+    const { data, error } = await supabase.from('suppliers').select('*').order('name', { ascending: true });
+    if (error) {
+      toast({ variant: "destructive", title: "Gagal Memuat Daftar Supplier", description: error.message });
+    } else {
+      setAllSuppliers(data.map(s => ({ ...s, id: String(s.id) })) as Supplier[]);
+    }
+  }, [toast]);
+
+  useEffect(() => { 
+    fetchInventory(); 
+    fetchSupplierOrders();
+    fetchAllSuppliers();
+  }, [fetchInventory, fetchSupplierOrders, fetchAllSuppliers]);
 
   const handleInputChange = (productId: string, value: string) => { setOrderQuantitiesInput(prev => ({ ...prev, [productId]: value })); };
   const handleAddToOrder = (product: Product) => { const quantityStr = orderQuantitiesInput[product.id] || '0'; const quantity = parseInt(quantityStr, 10); if (isNaN(quantity) || quantity <= 0) { toast({ variant: "destructive", title: "Jumlah Tidak Valid" }); return; } setOrderItems(prevItems => { const existingItemIndex = prevItems.findIndex(item => item.productId === product.id); if (existingItemIndex > -1) { const updatedItems = [...prevItems]; updatedItems[existingItemIndex].orderQuantity += quantity; return updatedItems; } else { return [...prevItems, { productId: product.id, productName: product.name, sku: product.sku, orderQuantity: quantity }]; } }); toast({ title: "Ditambahkan ke Order" }); setOrderQuantitiesInput(prev => ({ ...prev, [product.id]: '' })); };
   const handleUpdateOrderItemQuantity = (productId: string, change: number) => { setOrderItems(prevItems => { const itemIndex = prevItems.findIndex(item => item.productId === productId); if (itemIndex === -1) return prevItems; const updatedItems = [...prevItems]; const newQuantity = updatedItems[itemIndex].orderQuantity + change; if (newQuantity <= 0) { return updatedItems.filter(item => item.productId !== productId); } else { updatedItems[itemIndex].orderQuantity = newQuantity; return updatedItems; } }); };
   const handleRemoveFromOrder = (productId: string) => { setOrderItems(prevItems => prevItems.filter(item => item.productId !== productId)); toast({ title: "Item Dihapus" }); };
   
-  const filteredAndSortedProducts = useMemo(() => { let tempProducts = inventoryProducts.filter(p => p.category !== 'Jasa'); if (searchTerm) { tempProducts = tempProducts.filter(product => product.name.toLowerCase().includes(searchTerm.toLowerCase()) || product.sku.toLowerCase().includes(searchTerm.toLowerCase())); } switch (activeFilter) { case 'lowStock': tempProducts = tempProducts.filter(p => p.isActive && p.stockQuantity > 0 && p.stockQuantity <= p.lowStockThreshold); break; case 'outOfStock': tempProducts = tempProducts.filter(p => p.isActive && p.stockQuantity === 0); break; case 'inactive': tempProducts = tempProducts.filter(p => !p.isActive); break; case 'allActive': tempProducts = tempProducts.filter(p => p.isActive); break; case 'all': break; } return tempProducts.sort((a, b) => new Date(b.updatedAt || 0).getTime() - new Date(a.updatedAt || 0).getTime()); }, [inventoryProducts, searchTerm, activeFilter]);
+  const filteredAndSortedProducts = useMemo(() => { let tempProducts = inventoryProducts.filter(p => p.category !== 'Jasa'); if (searchTerm) { tempProducts = tempProducts.filter(product => product.name.toLowerCase().includes(searchTerm.toLowerCase()) || product.sku.toLowerCase().includes(searchTerm.toLowerCase())); } switch (activeFilter) { case 'lowStock': tempProducts = tempProducts.filter(p => p.isActive && p.stockQuantity > 0 && p.stockQuantity <= p.lowStockThreshold); break; case 'outOfStock': tempProducts = tempProducts.filter(p => p.isActive && p.stockQuantity === 0); break; case 'inactive': tempProducts = tempProducts.filter(p => !p.isActive); break; case 'allActive': tempProducts = tempProducts.filter(p => p.isActive); break; case 'all': break; } return tempProducts.sort((a, b) => new Date(b.updated_at || 0).getTime() - new Date(a.updated_at || 0).getTime()); }, [inventoryProducts, searchTerm, activeFilter]);
+
+  const filteredSuppliersForPopover = useMemo(() => {
+    if (!supplierName.trim()) return [];
+    return allSuppliers.filter(s =>
+      s.name.toLowerCase().includes(supplierName.toLowerCase()) ||
+      (s.contact_person || '').toLowerCase().includes(supplierName.toLowerCase())
+    );
+  }, [allSuppliers, supplierName]);
 
   const handleSaveDraftAndGenerateWhatsApp = async () => {
     if (orderItems.length === 0) { toast({ variant: "destructive", title: "Keranjang Order Kosong" }); return; }
@@ -124,22 +152,35 @@ export default function SupplierOrdersPage() {
       order_date: now.toISOString(), items: orderItems, status: 'Draf Order' as SupplierOrderStatus,
       total_order_quantity: orderItems.reduce((sum, item) => sum + item.orderQuantity, 0),
       created_at: now.toISOString(), updated_at: now.toISOString(),
-      supplier_name: supplierName.trim() || undefined,
+      supplier_name: supplierName.trim() || undefined, // Uses the state `supplierName`
       client_order_id: `SO-${format(now, 'yyyyMMddHHmmss')}-${Math.random().toString(36).substring(2, 7).toUpperCase()}`
     };
 
     const { data: insertedOrder, error } = await supabase.from('supplier_orders').insert([newOrderDataSupabase]).select().single();
     if (error) { toast({ variant: "destructive", title: "Gagal Simpan Draf Order", description: error.message }); return; }
     
-    let message = `Order ke ${supplierName || 'Supplier'}:\n\n`;
+    let message = `Order ke ${supplierName.trim() || 'Supplier Yang Terhormat'}:\n\n`;
     orderItems.forEach((item, index) => { message += `${index + 1}. ${item.productName} (${item.sku}) - ${item.orderQuantity} pcs\n`; });
     message += "\nMohon info ketersediaan & total harga. Terima kasih.\nBengkelKu";
     
-    const whatsappUrl = `https://api.whatsapp.com/send?text=${encodeURIComponent(message)}`;
+    let whatsappUrl = `https://api.whatsapp.com/send?text=${encodeURIComponent(message)}`;
+    if (selectedSupplier && selectedSupplier.whatsapp_number) {
+      let cleanNumber = selectedSupplier.whatsapp_number.replace(/\D/g, '');
+      if (cleanNumber.startsWith('0')) {
+        cleanNumber = '62' + cleanNumber.substring(1);
+      } else if (!cleanNumber.startsWith('62')) {
+        if (cleanNumber.length >= 9 && cleanNumber.length <= 13) { // Basic check for Indonesian local numbers
+            cleanNumber = '62' + cleanNumber;
+        }
+        // else, assume it's already an international number or a non-standard one, use as-is without '62' prefix
+      }
+      whatsappUrl = `https://wa.me/${cleanNumber}?text=${encodeURIComponent(message)}`;
+    }
+    
     window.open(whatsappUrl, '_blank');
     
     toast({ title: "Draf Order Disimpan & WA Siap", description: `Order ID: ${insertedOrder?.id || newOrderDataSupabase.client_order_id}` });
-    setOrderItems([]); setSupplierName(''); fetchSupplierOrders();
+    setOrderItems([]); setSupplierName(''); setSelectedSupplier(null); fetchSupplierOrders();
   };
 
   const getProductRowClass = (product: Product) => { if (!product.isActive) return "bg-muted/40 text-muted-foreground opacity-70"; if (product.category !== 'Jasa' && product.stockQuantity === 0) return "bg-red-100/70 dark:bg-red-900/30"; if (product.category !== 'Jasa' && product.stockQuantity > 0 && product.lowStockThreshold > 0 && product.stockQuantity <= product.lowStockThreshold) return "bg-yellow-100/70 dark:bg-yellow-900/30"; return ""; };
@@ -154,7 +195,7 @@ export default function SupplierOrdersPage() {
     }
   };
 
-  if (isLoading && inventoryProducts.length === 0 && supplierOrdersList.length === 0) { return <div className="flex justify-center items-center h-screen"><p>Memuat data...</p></div>; }
+  if (isLoading && inventoryProducts.length === 0 && supplierOrdersList.length === 0 && allSuppliers.length === 0) { return <div className="flex justify-center items-center h-screen"><p>Memuat data...</p></div>; }
 
   return (
     <div className="space-y-6">
@@ -162,7 +203,62 @@ export default function SupplierOrdersPage() {
       <Tabs defaultValue="createOrder" className="w-full">
         <TabsList className="grid w-full grid-cols-2 mb-4"><TabsTrigger value="createOrder"><PackagePlus className="mr-2 h-4 w-4"/>Buat Draf Order</TabsTrigger><TabsTrigger value="orderHistory"><ListOrdered className="mr-2 h-4 w-4"/>Riwayat & Penerimaan</TabsTrigger></TabsList>
         <TabsContent value="createOrder">
-          <div className="mb-4"><label htmlFor="supplierName" className="block text-sm font-medium text-gray-700 mb-1">Nama Supplier (Opsional)</label><Input id="supplierName" value={supplierName} onChange={(e) => setSupplierName(e.target.value)} placeholder="Masukkan nama supplier" /></div>
+          <div className="mb-4">
+            <label htmlFor="supplierName" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Nama Supplier (Opsional)</label>
+            <Popover open={isSupplierPopoverOpen} onOpenChange={setIsSupplierPopoverOpen}>
+              <PopoverTrigger asChild>
+                <div className="relative">
+                  <Input
+                    id="supplierName"
+                    value={supplierName}
+                    onChange={(e) => {
+                      const newName = e.target.value;
+                      setSupplierName(newName);
+                      setSelectedSupplier(null); // Reset if typing manually
+                      setIsSupplierPopoverOpen(newName.trim().length > 0 && filteredSuppliersForPopover.length > 0);
+                    }}
+                    onClick={() => { // Open if there's text and matching suppliers
+                        if(supplierName.trim().length > 0 && filteredSuppliersForPopover.length > 0) {
+                           setIsSupplierPopoverOpen(true);
+                        }
+                    }}
+                    placeholder="Ketik nama supplier atau pilih dari daftar"
+                    className="w-full"
+                    autoComplete="off"
+                  />
+                </div>
+              </PopoverTrigger>
+              <PopoverContent className="w-[--radix-popover-trigger-width] p-0" style={{ zIndex: 100 }}>
+                {filteredSuppliersForPopover.length > 0 && supplierName.trim().length > 0 ? (
+                  <ScrollArea className="h-auto max-h-[200px]">
+                    <div className="p-1 space-y-0.5">
+                    {filteredSuppliersForPopover.map((s) => (
+                      <Button
+                        key={s.id}
+                        variant="ghost"
+                        className="w-full justify-start h-auto py-1.5 px-2 text-sm"
+                        onClick={() => {
+                          setSupplierName(s.name);
+                          setSelectedSupplier(s);
+                          setIsSupplierPopoverOpen(false);
+                        }}
+                      >
+                        {s.name} 
+                        {(s.contact_person || s.whatsapp_number) && 
+                          <span className="ml-auto text-xs text-muted-foreground truncate max-w-[100px]">
+                            {s.contact_person || s.whatsapp_number}
+                          </span>
+                        }
+                      </Button>
+                    ))}
+                    </div>
+                  </ScrollArea>
+                ) : supplierName.trim().length > 0 && !isLoading ? (
+                  <div className="p-2 text-sm text-center text-muted-foreground">Supplier tidak ditemukan. <br/> Anda bisa ketik nama baru.</div>
+                ) : null}
+              </PopoverContent>
+            </Popover>
+          </div>
           <div className="grid lg:grid-cols-3 gap-6">
             <div className="lg:col-span-2 space-y-4"><Card className="shadow-md"><CardHeader><CardTitle>Daftar Item Inventaris (Non-Jasa)</CardTitle><CardDescription>Cari & pilih item untuk diorder.</CardDescription></CardHeader><CardContent><div className="flex flex-col sm:flex-row gap-2 mb-4"><div className="relative flex-grow"><Search className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-muted-foreground" /><Input type="text" placeholder="Cari Nama/SKU..." value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} className="pl-10 w-full" /></div><DropdownMenu><DropdownMenuTrigger asChild><Button variant="outline" className="w-full sm:w-auto"><Filter className="mr-2 h-4 w-4" />Filter ({ activeFilter === 'all' ? 'Semua Fisik' : activeFilter })</Button></DropdownMenuTrigger><DropdownMenuContent align="end" className="w-[200px]"><DropdownMenuLabel>Filter Status</DropdownMenuLabel><DropdownMenuSeparator /><DropdownMenuItem onClick={() => setActiveFilter('allActive')}>Semua Aktif</DropdownMenuItem><DropdownMenuItem onClick={() => setActiveFilter('lowStock')}>Stok Menipis</DropdownMenuItem><DropdownMenuItem onClick={() => setActiveFilter('outOfStock')}>Stok Habis</DropdownMenuItem><DropdownMenuItem onClick={() => setActiveFilter('inactive')}>Nonaktif</DropdownMenuItem><DropdownMenuSeparator /><DropdownMenuItem onClick={() => setActiveFilter('all')}>Semua Fisik</DropdownMenuItem></DropdownMenuContent></DropdownMenu></div>
               {filteredAndSortedProducts.length > 0 ? (<div className="overflow-x-auto max-h-[60vh]"><Table><TableHeader className="sticky top-0 bg-card z-10"><TableRow><TableHead className="min-w-[200px]">Nama Item</TableHead><TableHead className="min-w-[120px]">SKU</TableHead><TableHead className="text-center min-w-[80px]">Stok</TableHead><TableHead className="w-[120px] text-center">Jml Order</TableHead><TableHead className="w-[100px] text-right">Aksi</TableHead></TableRow></TableHeader><TableBody>{filteredAndSortedProducts.map((product) => (<TableRow key={product.id} className={getProductRowClass(product)}><TableCell className="font-medium">{product.name}{!product.isActive && <Badge variant="outline" className="ml-2 text-xs">Nonaktif</Badge>}{product.isActive && product.category !== 'Jasa' && product.stockQuantity === 0 && <Badge variant="destructive" className="ml-2 text-xs">Habis</Badge>}{product.isActive && product.category !== 'Jasa' && product.stockQuantity > 0 && product.lowStockThreshold > 0 && product.stockQuantity <= product.lowStockThreshold && <Badge variant="outline" className="ml-2 text-xs border-yellow-500 text-yellow-700">Menipis</Badge>}</TableCell><TableCell className="font-mono text-xs">{product.sku}</TableCell><TableCell className="text-center">{product.category === 'Jasa' ? 'N/A' : product.stockQuantity}</TableCell><TableCell className="text-center"><Input type="number" value={orderQuantitiesInput[product.id] || ''} onChange={(e) => handleInputChange(product.id, e.target.value)} placeholder="Qty" className="w-20 h-8 text-center mx-auto" min="1" disabled={!product.isActive} /></TableCell><TableCell className="text-right"><Button size="sm" onClick={() => handleAddToOrder(product)} disabled={!product.isActive || !orderQuantitiesInput[product.id] || parseInt(orderQuantitiesInput[product.id] || '0') <= 0} className="h-8"><PlusCircle className="mr-1 h-4 w-4" /> Add</Button></TableCell></TableRow>))}</TableBody></Table></div>) : ( <Card className="w-full text-center shadow-none border-dashed py-10"><CardHeader className="items-center">{ (activeFilter === 'all' && !searchTerm) || (activeFilter === 'allActive' && !searchTerm) ? <PackagePlus className="w-16 h-16 text-muted-foreground mb-4" /> : <Search className="w-16 h-16 text-muted-foreground mb-4" />}<CardTitle className="text-xl text-foreground">{ (activeFilter === 'all' && !searchTerm) || (activeFilter === 'allActive' && !searchTerm) ? "Belum Ada Item Fisik" : "Item Tidak Ditemukan"}</CardTitle></CardHeader><CardContent><p className="text-muted-foreground">{ (activeFilter === 'all' && !searchTerm) || (activeFilter === 'allActive' && !searchTerm) ? "Tidak ada item fisik." : "Item tidak cocok filter."}</p></CardContent></Card>)}
@@ -204,3 +300,4 @@ export default function SupplierOrdersPage() {
     </div>
   );
 }
+
