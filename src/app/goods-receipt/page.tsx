@@ -2,12 +2,12 @@
 "use client";
 
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
+import dynamic from 'next/dynamic';
 import { PageHeader } from "@/components/shared/PageHeader";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogClose } from "@/components/ui/dialog";
 import { Badge } from "@/components/ui/badge";
 import { useToast } from "@/hooks/use-toast";
 import type { Product, SupplierOrder, SupplierOrderItem, SupplierOrderStatus } from "@/lib/types";
@@ -17,6 +17,15 @@ import { format, parseISO } from 'date-fns';
 import { id as localeID } from 'date-fns/locale';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
+
+const DynamicDialog = dynamic(() => import('@/components/ui/dialog').then(mod => mod.Dialog), { ssr: false });
+const DynamicDialogContent = dynamic(() => import('@/components/ui/dialog').then(mod => mod.DialogContent), { ssr: false });
+const DynamicDialogHeader = dynamic(() => import('@/components/ui/dialog').then(mod => mod.DialogHeader), { ssr: false });
+const DynamicDialogTitle = dynamic(() => import('@/components/ui/dialog').then(mod => mod.DialogTitle), { ssr: false });
+const DynamicDialogDescription = dynamic(() => import('@/components/ui/dialog').then(mod => mod.DialogDescription), { ssr: false });
+const DynamicDialogFooter = dynamic(() => import('@/components/ui/dialog').then(mod => mod.DialogFooter), { ssr: false });
+const DynamicDialogClose = dynamic(() => import('@/components/ui/dialog').then(mod => mod.DialogClose), { ssr: false });
+
 
 export default function GoodsReceiptPage() {
   const { toast } = useToast();
@@ -52,6 +61,7 @@ export default function GoodsReceiptPage() {
       }
       const transformedInvData = invData.map(p => ({ 
           ...p, 
+          id: String(p.id),
           sellingPrices: typeof p.selling_prices === 'string' ? JSON.parse(p.selling_prices) : p.selling_prices,
           costPrice: p.cost_price,
           stockQuantity: p.stock_quantity,
@@ -91,7 +101,6 @@ export default function GoodsReceiptPage() {
       }));
       setSupplierOrdersList(transformedOrderData as SupplierOrder[]);
     } catch (error: any) {
-      // Toast for specific errors already handled above. This is a fallback.
       if (!toast.toasts.find(t => t.title?.toString().includes("Kesalahan Database"))) {
         toast({ variant: "destructive", title: "Gagal Memuat Data Awal", description: "Terjadi kesalahan umum." });
       }
@@ -208,12 +217,30 @@ export default function GoodsReceiptPage() {
           {relevantOrders.map((order) => (<TableRow key={order.id}><TableCell className="font-mono text-xs">{order.id}</TableCell><TableCell>{format(parseISO(order.orderDate), "dd MMM yyyy, HH:mm", { locale: localeID })}</TableCell><TableCell>{order.supplierName || '-'}</TableCell><TableCell className="text-center"><Badge variant="default" className={`${getStatusBadgeColor(order.status)} text-white hover:${getStatusBadgeColor(order.status)}`}>{order.status}</Badge></TableCell><TableCell className="text-right"><Button onClick={() => handleOpenReceiptDialog(order)} size="sm" className="bg-primary hover:bg-primary/90 text-primary-foreground"><CheckSquare className="mr-2 h-4 w-4" /> Proses Terima</Button></TableCell></TableRow>))}
         </TableBody></Table></div></CardContent></Card>
       )}
-      {selectedOrder && (<Dialog open={!!selectedOrder} onOpenChange={(open) => { if (!open) setSelectedOrder(null); }}><DialogContent className="sm:max-w-2xl max-h-[90vh] flex flex-col"><DialogHeader><DialogTitle>Proses Penerimaan Order: {selectedOrder.id}</DialogTitle><DialogDescription>Supplier: {selectedOrder.supplierName || "N/A"} | Status: <Badge variant="default" className={`${getStatusBadgeColor(selectedOrder.status)} text-white`}>{selectedOrder.status}</Badge></DialogDescription></DialogHeader><div className="flex-grow overflow-y-auto pr-2 space-y-4 py-2"><div><Label htmlFor="invoiceNumber">No. Surat Jalan/Invoice (Opsional)</Label><Input id="invoiceNumber" value={currentInvoiceNumber} onChange={(e) => setCurrentInvoiceNumber(e.target.value)} placeholder="No. invoice"/></div><h4 className="font-semibold text-md pt-2">Detail Item Diterima:</h4><Table><TableHeader><TableRow><TableHead className="w-[30%]">Nama Item</TableHead><TableHead className="text-center">Dipesan</TableHead><TableHead className="text-center">Sudah Terima</TableHead><TableHead className="text-center w-[100px]">Qty Terima</TableHead><TableHead className="text-center w-[150px]">Hrg. Beli Aktual</TableHead></TableRow></TableHeader><TableBody>
-        {selectedOrder.items.map(item => { const detail = itemReceiptDetails[String(item.productId)] || { quantityReceivedThisSession: '0', actualCostPriceThisSession: '0' }; const remainingToReceive = item.orderQuantity - (item.quantityReceived || 0); return (
-          <TableRow key={item.productId}><TableCell>{item.productName}<p className="text-xs text-muted-foreground font-mono">{item.sku}</p></TableCell><TableCell className="text-center">{item.orderQuantity}</TableCell><TableCell className="text-center">{item.quantityReceived || 0}</TableCell><TableCell className="text-center"><Input type="number" value={detail.quantityReceivedThisSession} onChange={(e) => handleReceiptDetailChange(String(item.productId), 'quantityReceivedThisSession', e.target.value)} className="w-20 h-8 text-center mx-auto" min="0" max={remainingToReceive.toString()} placeholder="Qty"/></TableCell><TableCell className="text-center"><Input type="number" value={detail.actualCostPriceThisSession} onChange={(e) => handleReceiptDetailChange(String(item.productId), 'actualCostPriceThisSession', e.target.value)} className="w-32 h-8 text-center mx-auto" min="0" placeholder="Harga"/></TableCell></TableRow>
-        );})}
-      </TableBody></Table><div className="mt-4"><Label htmlFor="overallReceivingNotes">Catatan Penerimaan (Opsional)</Label><Textarea id="overallReceivingNotes" value={currentReceivingNotes} onChange={(e) => setCurrentReceivingNotes(e.target.value)} placeholder="Contoh: 1 item rusak, dus penyok." rows={2}/></div></div><DialogFooter className="mt-4 border-t pt-4"><DialogClose asChild><Button variant="outline">Batal</Button></DialogClose><Button onClick={handleConfirmReceipt} className="bg-green-600 hover:bg-green-700 text-white"><CheckSquare className="mr-2 h-4 w-4" /> Konfirmasi & Update Data</Button></DialogFooter></DialogContent></Dialog>)}
+      {selectedOrder && (
+        <DynamicDialog open={!!selectedOrder} onOpenChange={(open) => { if (!open) setSelectedOrder(null); }}>
+          <DynamicDialogContent className="sm:max-w-2xl max-h-[90vh] flex flex-col">
+            <DynamicDialogHeader>
+              <DynamicDialogTitle>Proses Penerimaan Order: {selectedOrder.id}</DynamicDialogTitle>
+              <DynamicDialogDescription>Supplier: {selectedOrder.supplierName || "N/A"} | Status: <Badge variant="default" className={`${getStatusBadgeColor(selectedOrder.status)} text-white`}>{selectedOrder.status}</Badge></DynamicDialogDescription>
+            </DynamicDialogHeader>
+            <div className="flex-grow overflow-y-auto pr-2 space-y-4 py-2">
+              <div><Label htmlFor="invoiceNumber">No. Surat Jalan/Invoice (Opsional)</Label><Input id="invoiceNumber" value={currentInvoiceNumber} onChange={(e) => setCurrentInvoiceNumber(e.target.value)} placeholder="No. invoice"/></div>
+              <h4 className="font-semibold text-md pt-2">Detail Item Diterima:</h4>
+              <Table><TableHeader><TableRow><TableHead className="w-[30%]">Nama Item</TableHead><TableHead className="text-center">Dipesan</TableHead><TableHead className="text-center">Sudah Terima</TableHead><TableHead className="text-center w-[100px]">Qty Terima</TableHead><TableHead className="text-center w-[150px]">Hrg. Beli Aktual</TableHead></TableRow></TableHeader><TableBody>
+                {selectedOrder.items.map(item => { const detail = itemReceiptDetails[String(item.productId)] || { quantityReceivedThisSession: '0', actualCostPriceThisSession: '0' }; const remainingToReceive = item.orderQuantity - (item.quantityReceived || 0); return (
+                  <TableRow key={item.productId}><TableCell>{item.productName}<p className="text-xs text-muted-foreground font-mono">{item.sku}</p></TableCell><TableCell className="text-center">{item.orderQuantity}</TableCell><TableCell className="text-center">{item.quantityReceived || 0}</TableCell><TableCell className="text-center"><Input type="number" value={detail.quantityReceivedThisSession} onChange={(e) => handleReceiptDetailChange(String(item.productId), 'quantityReceivedThisSession', e.target.value)} className="w-20 h-8 text-center mx-auto" min="0" max={remainingToReceive.toString()} placeholder="Qty"/></TableCell><TableCell className="text-center"><Input type="number" value={detail.actualCostPriceThisSession} onChange={(e) => handleReceiptDetailChange(String(item.productId), 'actualCostPriceThisSession', e.target.value)} className="w-32 h-8 text-center mx-auto" min="0" placeholder="Harga"/></TableCell></TableRow>
+                );})}
+              </TableBody></Table>
+              <div className="mt-4"><Label htmlFor="overallReceivingNotes">Catatan Penerimaan (Opsional)</Label><Textarea id="overallReceivingNotes" value={currentReceivingNotes} onChange={(e) => setCurrentReceivingNotes(e.target.value)} placeholder="Contoh: 1 item rusak, dus penyok." rows={2}/></div>
+            </div>
+            <DynamicDialogFooter className="mt-4 border-t pt-4">
+              <DynamicDialogClose asChild><Button variant="outline">Batal</Button></DynamicDialogClose>
+              <Button onClick={handleConfirmReceipt} className="bg-green-600 hover:bg-green-700 text-white"><CheckSquare className="mr-2 h-4 w-4" /> Konfirmasi & Update Data</Button>
+            </DynamicDialogFooter>
+          </DynamicDialogContent>
+        </DynamicDialog>
+      )}
     </div>
   );
 }
-

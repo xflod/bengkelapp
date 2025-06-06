@@ -2,6 +2,7 @@
 "use client";
 
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
+import dynamic from 'next/dynamic';
 import { PageHeader } from "@/components/shared/PageHeader";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -14,9 +15,17 @@ import type { Product, SupplierOrderItem, SupplierOrder, SupplierOrderStatus } f
 import { supabase } from '@/lib/supabase';
 import { ShoppingBag, Search, Filter, PlusCircle, MinusCircle, Trash2, MessageSquare, PackagePlus, ListOrdered, Eye, AlertTriangle } from "lucide-react";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { format } from 'date-fns';
+import { format, parseISO } from 'date-fns';
 import { id as localeID } from 'date-fns/locale';
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter, DialogClose } from "@/components/ui/dialog";
+
+const DynamicDialog = dynamic(() => import('@/components/ui/dialog').then(mod => mod.Dialog), { ssr: false });
+const DynamicDialogContent = dynamic(() => import('@/components/ui/dialog').then(mod => mod.DialogContent), { ssr: false });
+const DynamicDialogHeader = dynamic(() => import('@/components/ui/dialog').then(mod => mod.DialogHeader), { ssr: false });
+const DynamicDialogTitle = dynamic(() => import('@/components/ui/dialog').then(mod => mod.DialogTitle), { ssr: false });
+const DynamicDialogDescription = dynamic(() => import('@/components/ui/dialog').then(mod => mod.DialogDescription), { ssr: false });
+const DynamicDialogFooter = dynamic(() => import('@/components/ui/dialog').then(mod => mod.DialogFooter), { ssr: false });
+const DynamicDialogClose = dynamic(() => import('@/components/ui/dialog').then(mod => mod.DialogClose), { ssr: false });
+
 
 type ProductFilter = 'all' | 'lowStock' | 'outOfStock' | 'inactive' | 'allActive';
 
@@ -53,6 +62,7 @@ export default function SupplierOrdersPage() {
     } else {
       const transformedData = data.map(p => ({ 
           ...p, 
+          id: String(p.id),
           sellingPrices: typeof p.selling_prices === 'string' ? JSON.parse(p.selling_prices) : p.selling_prices,
           costPrice: p.cost_price,
           stockQuantity: p.stock_quantity,
@@ -82,7 +92,7 @@ export default function SupplierOrdersPage() {
     } else {
        const transformedData = data.map(so => ({
         ...so,
-        id: String(so.id), // ensure id is string
+        id: String(so.id), 
         items: typeof so.items === 'string' ? JSON.parse(so.items) : so.items,
         orderDate: so.order_date,
         totalOrderQuantity: so.total_order_quantity,
@@ -162,12 +172,35 @@ export default function SupplierOrdersPage() {
         </TabsContent>
         <TabsContent value="orderHistory"><Card className="shadow-md"><CardHeader><CardTitle>Riwayat Order ke Supplier</CardTitle><CardDescription>Daftar order dan status penerimaannya.</CardDescription></CardHeader><CardContent>
           {supplierOrdersList.length > 0 ? (<div className="overflow-x-auto max-h-[70vh]"><Table><TableHeader><TableRow><TableHead>ID Order</TableHead><TableHead>Tgl. Order</TableHead><TableHead>Supplier</TableHead><TableHead className="text-center">Total Item</TableHead><TableHead>Status</TableHead><TableHead className="text-right">Aksi</TableHead></TableRow></TableHeader><TableBody>
-            {supplierOrdersList.map(order => (<TableRow key={order.id}><TableCell className="font-mono text-xs">{order.id}</TableCell><TableCell>{format(new Date(order.orderDate), "dd MMM yyyy, HH:mm", { locale: localeID })}</TableCell><TableCell>{order.supplierName || '-'}</TableCell><TableCell className="text-center">{order.totalOrderQuantity}</TableCell><TableCell><Badge className={`${getStatusBadgeColor(order.status)} text-white hover:${getStatusBadgeColor(order.status)}`}>{order.status}</Badge></TableCell><TableCell className="text-right space-x-1"><Button variant="outline" size="sm" className="h-8" onClick={() => handleOpenDetailDialog(order)} title="Detail"><Eye className="mr-1 h-4 w-4" /> Detail</Button><Button variant="ghost" size="icon" className="h-8 w-8 text-destructive hover:text-destructive/90" onClick={() => handleDeleteSupplierOrder(order.id)} title="Hapus"><Trash2 className="h-4 w-4" /></Button></TableCell></TableRow>))}
+            {supplierOrdersList.map(order => (<TableRow key={order.id}><TableCell className="font-mono text-xs">{order.id}</TableCell><TableCell>{format(parseISO(order.orderDate), "dd MMM yyyy, HH:mm", { locale: localeID })}</TableCell><TableCell>{order.supplierName || '-'}</TableCell><TableCell className="text-center">{order.totalOrderQuantity}</TableCell><TableCell><Badge className={`${getStatusBadgeColor(order.status)} text-white hover:${getStatusBadgeColor(order.status)}`}>{order.status}</Badge></TableCell><TableCell className="text-right space-x-1"><Button variant="outline" size="sm" className="h-8" onClick={() => handleOpenDetailDialog(order)} title="Detail"><Eye className="mr-1 h-4 w-4" /> Detail</Button><Button variant="ghost" size="icon" className="h-8 w-8 text-destructive hover:text-destructive/90" onClick={() => handleDeleteSupplierOrder(order.id)} title="Hapus"><Trash2 className="h-4 w-4" /></Button></TableCell></TableRow>))}
           </TableBody></Table></div>) : (<div className="text-center py-10 text-muted-foreground"><ListOrdered className="mx-auto h-16 w-16 mb-4 opacity-50" /><p className="text-lg">Belum ada riwayat order.</p></div>)}
         </CardContent></Card></TabsContent>
       </Tabs>
-      {selectedOrderForDetail && (<Dialog open={isDetailOrderDialogOpen} onOpenChange={setIsDetailOrderDialogOpen}><DialogContent className="sm:max-w-lg max-h-[90vh] flex flex-col"><DialogHeader><DialogTitle>Detail Order: {selectedOrderForDetail.id}</DialogTitle><DialogDescription>Tanggal: {format(new Date(selectedOrderForDetail.orderDate), "dd MMM yyyy, HH:mm", { locale: localeID })} | Supplier: {selectedOrderForDetail.supplierName || '-'} <br/>Status: <Badge className={`${getStatusBadgeColor(selectedOrderForDetail.status)} text-white`}>{selectedOrderForDetail.status}</Badge></DialogDescription></DialogHeader><div className="flex-grow overflow-y-auto pr-2"><h4 className="font-semibold mb-2">Item Dipesan:</h4><Table><TableHeader><TableRow><TableHead>Nama Item</TableHead><TableHead>SKU</TableHead><TableHead className="text-center">Qty Order</TableHead></TableRow></TableHeader><TableBody>{selectedOrderForDetail.items.map(item => (<TableRow key={item.productId}><TableCell>{item.productName}</TableCell><TableCell className="font-mono text-xs">{item.sku}</TableCell><TableCell className="text-center">{item.orderQuantity}</TableCell></TableRow>))}</TableBody></Table><div className="mt-6 p-4 border-dashed border-2 border-amber-500 rounded-md bg-amber-50"><div className="flex items-center text-amber-700"><AlertTriangle className="h-6 w-6 mr-3 shrink-0" /><p className="text-xs">Fitur penerimaan barang & update stok akan di halaman "Penerimaan Barang".</p></div></div></div><DialogFooter className="mt-4 border-t pt-4"><DialogClose asChild><Button variant="outline">Tutup</Button></DialogClose>{selectedOrderForDetail.status === 'Draf Order' && (<Button onClick={async () => { const { error } = await supabase.from('supplier_orders').update({ status: 'Dipesan ke Supplier', updated_at: new Date().toISOString() }).match({ id: selectedOrderForDetail.id }); if (error) toast({variant: "destructive", title: "Error"}); else {toast({title: "Status Order Diubah"}); fetchSupplierOrders(); setIsDetailOrderDialogOpen(false);}}} className="bg-blue-600 hover:bg-blue-700 text-white">Tandai "Dipesan"</Button>)}</DialogFooter></DialogContent></Dialog>)}
+      {selectedOrderForDetail && isDetailOrderDialogOpen && (
+        <DynamicDialog open={isDetailOrderDialogOpen} onOpenChange={setIsDetailOrderDialogOpen}>
+          <DynamicDialogContent className="sm:max-w-lg max-h-[90vh] flex flex-col">
+            <DynamicDialogHeader>
+              <DynamicDialogTitle>Detail Order: {selectedOrderForDetail.id}</DynamicDialogTitle>
+              <DynamicDialogDescription>Tanggal: {format(parseISO(selectedOrderForDetail.orderDate), "dd MMM yyyy, HH:mm", { locale: localeID })} | Supplier: {selectedOrderForDetail.supplierName || '-'} <br/>Status: <Badge className={`${getStatusBadgeColor(selectedOrderForDetail.status)} text-white`}>{selectedOrderForDetail.status}</Badge></DynamicDialogDescription>
+            </DynamicDialogHeader>
+            <div className="flex-grow overflow-y-auto pr-2">
+              <h4 className="font-semibold mb-2">Item Dipesan:</h4>
+              <Table><TableHeader><TableRow><TableHead>Nama Item</TableHead><TableHead>SKU</TableHead><TableHead className="text-center">Qty Order</TableHead></TableRow></TableHeader><TableBody>{selectedOrderForDetail.items.map(item => (<TableRow key={item.productId}><TableCell>{item.productName}</TableCell><TableCell className="font-mono text-xs">{item.sku}</TableCell><TableCell className="text-center">{item.orderQuantity}</TableCell></TableRow>))}</TableBody></Table>
+              <div className="mt-6 p-4 border-dashed border-2 border-amber-500 rounded-md bg-amber-50"><div className="flex items-center text-amber-700"><AlertTriangle className="h-6 w-6 mr-3 shrink-0" /><p className="text-xs">Fitur penerimaan barang & update stok akan di halaman "Penerimaan Barang".</p></div></div>
+            </div>
+            <DynamicDialogFooter className="mt-4 border-t pt-4">
+              <DynamicDialogClose asChild><Button variant="outline">Tutup</Button></DynamicDialogClose>
+              {selectedOrderForDetail.status === 'Draf Order' && (
+                <Button onClick={async () => { 
+                  const { error } = await supabase.from('supplier_orders').update({ status: 'Dipesan ke Supplier', updated_at: new Date().toISOString() }).match({ id: selectedOrderForDetail.id }); 
+                  if (error) toast({variant: "destructive", title: "Error Update Status Order"}); 
+                  else {toast({title: "Status Order Diubah menjadi 'Dipesan ke Supplier'"}); fetchSupplierOrders(); setIsDetailOrderDialogOpen(false);}}} 
+                  className="bg-blue-600 hover:bg-blue-700 text-white">Tandai "Dipesan"</Button>
+              )}
+            </DynamicDialogFooter>
+          </DynamicDialogContent>
+        </DynamicDialog>
+      )}
     </div>
   );
 }
-

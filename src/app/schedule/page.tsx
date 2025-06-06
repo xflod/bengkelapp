@@ -2,10 +2,10 @@
 "use client";
 
 import React, { useState, useEffect, useCallback } from 'react';
+import dynamic from 'next/dynamic';
 import { PageHeader } from "@/components/shared/PageHeader";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
-import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogClose } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
@@ -18,6 +18,15 @@ import { id as localeID } from 'date-fns/locale';
 import { Slider } from "@/components/ui/slider"; 
 import { Progress } from "@/components/ui/progress";
 import { supabase } from '@/lib/supabase';
+
+const DynamicDialog = dynamic(() => import('@/components/ui/dialog').then(mod => mod.Dialog), { ssr: false });
+const DynamicDialogContent = dynamic(() => import('@/components/ui/dialog').then(mod => mod.DialogContent), { ssr: false });
+const DynamicDialogHeader = dynamic(() => import('@/components/ui/dialog').then(mod => mod.DialogHeader), { ssr: false });
+const DynamicDialogTitle = dynamic(() => import('@/components/ui/dialog').then(mod => mod.DialogTitle), { ssr: false });
+const DynamicDialogDescription = dynamic(() => import('@/components/ui/dialog').then(mod => mod.DialogDescription), { ssr: false });
+const DynamicDialogFooter = dynamic(() => import('@/components/ui/dialog').then(mod => mod.DialogFooter), { ssr: false });
+const DynamicDialogClose = dynamic(() => import('@/components/ui/dialog').then(mod => mod.DialogClose), { ssr: false });
+
 
 interface ServiceJob {
   id: string; 
@@ -60,7 +69,7 @@ export default function SchedulePage() {
     const { data, error } = await supabase
       .from('service_jobs')
       .select('*')
-      .order('created_at', { ascending: false }); // Fixed: createdAt to created_at
+      .order('created_at', { ascending: false }); 
 
     if (error) {
       console.error('Error fetching service jobs:', error);
@@ -178,7 +187,44 @@ export default function SchedulePage() {
           ))}
         </div>
       )}
-      <Dialog open={isFormOpen} onOpenChange={(open) => { setIsFormOpen(open); if (!open) resetFormFields(); }}><DialogContent className="sm:max-w-lg max-h-[90vh] flex flex-col"><DialogHeader className="flex-shrink-0"><DialogTitle>{editingJobId ? 'Edit Jadwal Servis' : 'Buat Jadwal Servis Baru'}</DialogTitle><DialogDescription>{editingJobId ? `Mengedit detail untuk ${vehiclePlate}.` : 'Masukkan detail servis pelanggan.'}</DialogDescription></DialogHeader><div className="grid gap-4 py-2 flex-grow overflow-y-auto pr-3"><div className="grid grid-cols-4 items-center gap-x-4 gap-y-2"><Label htmlFor="customerNameForm" className="text-right col-span-4 sm:col-span-1">Nama<span className="text-destructive">*</span></Label><Input id="customerNameForm" value={customerName} onChange={(e) => setCustomerName(e.target.value)} className="col-span-4 sm:col-span-3" placeholder="Nama pelanggan" /><Label htmlFor="customerPhoneForm" className="text-right col-span-4 sm:col-span-1">No. Telp</Label><Input id="customerPhoneForm" type="tel" value={customerPhone} onChange={(e) => setCustomerPhone(e.target.value)} className="col-span-4 sm:col-span-3" placeholder="08xx (opsional)" /><Label htmlFor="vehiclePlateForm" className="text-right col-span-4 sm:col-span-1">No. Pol<span className="text-destructive">*</span></Label><Input id="vehiclePlateForm" value={vehiclePlate} onChange={(e) => setVehiclePlate(e.target.value.toUpperCase())} className="col-span-4 sm:col-span-3" placeholder="B 1234 ABC" /><Label htmlFor="vehicleTypeForm" className="text-right col-span-4 sm:col-span-1">Kendaraan<span className="text-destructive">*</span></Label><Input id="vehicleTypeForm" value={vehicleType} onChange={(e) => setVehicleType(e.target.value)} className="col-span-4 sm:col-span-3" placeholder="Honda Beat, NMAX" /></div><div className="grid grid-cols-4 items-start gap-x-4 gap-y-2 mt-2"><Label htmlFor="serviceRequestForm" className="text-right col-span-4 sm:col-span-1 pt-2">Keluhan<span className="text-destructive">*</span></Label><Textarea id="serviceRequestForm" value={serviceRequest} onChange={(e) => setServiceRequest(e.target.value)} className="col-span-4 sm:col-span-3" placeholder="Jelaskan keluhan pelanggan." rows={3}/></div><div className="grid grid-cols-4 items-start gap-x-4 gap-y-2 mt-2"><Label htmlFor="estimatedProgressForm" className="text-right col-span-4 sm:col-span-1 pt-2">Estimasi Progres (%)</Label><div className="col-span-4 sm:col-span-3 space-y-2"><Slider id="estimatedProgressForm" min={0} max={100} step={5} value={estimatedProgress} onValueChange={setEstimatedProgress} className="w-full"/><Input type="number" value={estimatedProgress[0]} onChange={(e) => setEstimatedProgress([parseInt(e.target.value, 10) || 0])} min="0" max="100" className="w-20 text-center"/></div></div>{editingJobId && (<><div className="grid grid-cols-4 items-start gap-x-4 gap-y-2 mt-2"><Label htmlFor="workDoneNotesForm" className="text-right col-span-4 sm:col-span-1 pt-2">Catatan Pengerjaan</Label><Textarea id="workDoneNotesForm" value={workDoneNotes} onChange={(e) => setWorkDoneNotes(e.target.value)} className="col-span-4 sm:col-span-3" placeholder="Catat pekerjaan yg dilakukan." rows={4}/></div><div className="grid grid-cols-4 items-center gap-x-4 gap-y-2 mt-2"><Label htmlFor="currentStatusForm" className="text-right col-span-4 sm:col-span-1">Status</Label><Select value={currentStatus} onValueChange={(value: ServiceJob['status']) => setCurrentStatus(value)}><SelectTrigger className="col-span-4 sm:col-span-3"><SelectValue placeholder="Pilih status" /></SelectTrigger><SelectContent><SelectItem value="Antrian">Antrian</SelectItem><SelectItem value="Dikerjakan">Dikerjakan</SelectItem><SelectItem value="Menunggu Konfirmasi">Menunggu Konfirmasi</SelectItem><SelectItem value="Selesai">Selesai</SelectItem><SelectItem value="Dibatalkan">Dibatalkan</SelectItem></SelectContent></Select></div><div className="grid grid-cols-4 items-center gap-x-4 gap-y-2 mt-2"><Label className="text-right col-span-4 sm:col-span-1">Kode Akses</Label><div className="col-span-4 sm:col-span-3 flex items-center gap-2"><Input id="accessCodeDisplay" value={currentAccessCode} readOnly className="bg-muted/50" /><Button variant="outline" size="icon" onClick={() => handleCopyAccessCode(currentAccessCode)} title="Salin Kode"><Copy className="h-4 w-4"/></Button></div></div></>)}{!editingJobId && (<div className="grid grid-cols-4 items-center gap-x-4 gap-y-2 mt-2"><Label className="text-right col-span-4 sm:col-span-1">Kode Akses</Label><Input value={currentAccessCode} readOnly className="col-span-4 sm:col-span-3 bg-muted/50" /></div>)}</div><DialogFooter className="flex-shrink-0 pt-4 border-t"><DialogClose asChild><Button type="button" variant="outline">Batal</Button></DialogClose><Button type="button" onClick={handleSaveJob} className="bg-primary hover:bg-primary/90 text-primary-foreground">Simpan Jadwal</Button></DialogFooter></DialogContent></Dialog>
+      {isFormOpen && (
+        <DynamicDialog open={isFormOpen} onOpenChange={(open) => { setIsFormOpen(open); if (!open) resetFormFields(); }}>
+          <DynamicDialogContent className="sm:max-w-lg max-h-[90vh] flex flex-col">
+            <DynamicDialogHeader className="flex-shrink-0">
+              <DynamicDialogTitle>{editingJobId ? 'Edit Jadwal Servis' : 'Buat Jadwal Servis Baru'}</DynamicDialogTitle>
+              <DynamicDialogDescription>{editingJobId ? `Mengedit detail untuk ${vehiclePlate}.` : 'Masukkan detail servis pelanggan.'}</DynamicDialogDescription>
+            </DynamicDialogHeader>
+            <div className="grid gap-4 py-2 flex-grow overflow-y-auto pr-3">
+              <div className="grid grid-cols-4 items-center gap-x-4 gap-y-2"><Label htmlFor="customerNameForm" className="text-right col-span-4 sm:col-span-1">Nama<span className="text-destructive">*</span></Label><Input id="customerNameForm" value={customerName} onChange={(e) => setCustomerName(e.target.value)} className="col-span-4 sm:col-span-3" placeholder="Nama pelanggan" /><Label htmlFor="customerPhoneForm" className="text-right col-span-4 sm:col-span-1">No. Telp</Label><Input id="customerPhoneForm" type="tel" value={customerPhone} onChange={(e) => setCustomerPhone(e.target.value)} className="col-span-4 sm:col-span-3" placeholder="08xx (opsional)" /><Label htmlFor="vehiclePlateForm" className="text-right col-span-4 sm:col-span-1">No. Pol<span className="text-destructive">*</span></Label><Input id="vehiclePlateForm" value={vehiclePlate} onChange={(e) => setVehiclePlate(e.target.value.toUpperCase())} className="col-span-4 sm:col-span-3" placeholder="B 1234 ABC" /><Label htmlFor="vehicleTypeForm" className="text-right col-span-4 sm:col-span-1">Kendaraan<span className="text-destructive">*</span></Label><Input id="vehicleTypeForm" value={vehicleType} onChange={(e) => setVehicleType(e.target.value)} className="col-span-4 sm:col-span-3" placeholder="Honda Beat, NMAX" /></div>
+              <div className="grid grid-cols-4 items-start gap-x-4 gap-y-2 mt-2"><Label htmlFor="serviceRequestForm" className="text-right col-span-4 sm:col-span-1 pt-2">Keluhan<span className="text-destructive">*</span></Label><Textarea id="serviceRequestForm" value={serviceRequest} onChange={(e) => setServiceRequest(e.target.value)} className="col-span-4 sm:col-span-3" placeholder="Jelaskan keluhan pelanggan." rows={3}/></div>
+              <div className="grid grid-cols-4 items-start gap-x-4 gap-y-2 mt-2"><Label htmlFor="estimatedProgressForm" className="text-right col-span-4 sm:col-span-1 pt-2">Estimasi Progres (%)</Label><div className="col-span-4 sm:col-span-3 space-y-2"><Slider id="estimatedProgressForm" min={0} max={100} step={5} value={estimatedProgress} onValueChange={setEstimatedProgress} className="w-full"/><Input type="number" value={estimatedProgress[0]} onChange={(e) => setEstimatedProgress([parseInt(e.target.value, 10) || 0])} min="0" max="100" className="w-20 text-center"/></div></div>
+              {editingJobId && (
+                <>
+                  <div className="grid grid-cols-4 items-start gap-x-4 gap-y-2 mt-2"><Label htmlFor="workDoneNotesForm" className="text-right col-span-4 sm:col-span-1 pt-2">Catatan Pengerjaan</Label><Textarea id="workDoneNotesForm" value={workDoneNotes} onChange={(e) => setWorkDoneNotes(e.target.value)} className="col-span-4 sm:col-span-3" placeholder="Catat pekerjaan yg dilakukan." rows={4}/></div>
+                  <div className="grid grid-cols-4 items-center gap-x-4 gap-y-2 mt-2"><Label htmlFor="currentStatusForm" className="text-right col-span-4 sm:col-span-1">Status</Label>
+                    <Select value={currentStatus} onValueChange={(value: ServiceJob['status']) => setCurrentStatus(value)}>
+                      <SelectTrigger className="col-span-4 sm:col-span-3"><SelectValue placeholder="Pilih status" /></SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="Antrian">Antrian</SelectItem>
+                        <SelectItem value="Dikerjakan">Dikerjakan</SelectItem>
+                        <SelectItem value="Menunggu Konfirmasi">Menunggu Konfirmasi</SelectItem>
+                        <SelectItem value="Selesai">Selesai</SelectItem>
+                        <SelectItem value="Dibatalkan">Dibatalkan</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div className="grid grid-cols-4 items-center gap-x-4 gap-y-2 mt-2"><Label className="text-right col-span-4 sm:col-span-1">Kode Akses</Label><div className="col-span-4 sm:col-span-3 flex items-center gap-2"><Input id="accessCodeDisplay" value={currentAccessCode} readOnly className="bg-muted/50" /><Button variant="outline" size="icon" onClick={() => handleCopyAccessCode(currentAccessCode)} title="Salin Kode"><Copy className="h-4 w-4"/></Button></div></div>
+                </>
+              )}
+              {!editingJobId && (<div className="grid grid-cols-4 items-center gap-x-4 gap-y-2 mt-2"><Label className="text-right col-span-4 sm:col-span-1">Kode Akses</Label><Input value={currentAccessCode} readOnly className="col-span-4 sm:col-span-3 bg-muted/50" /></div>)}
+            </div>
+            <DynamicDialogFooter className="flex-shrink-0 pt-4 border-t">
+              <DynamicDialogClose asChild><Button type="button" variant="outline">Batal</Button></DynamicDialogClose>
+              <Button type="button" onClick={handleSaveJob} className="bg-primary hover:bg-primary/90 text-primary-foreground">Simpan Jadwal</Button>
+            </DynamicDialogFooter>
+          </DynamicDialogContent>
+        </DynamicDialog>
+      )}
     </div>
   );
 }

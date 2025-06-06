@@ -2,13 +2,13 @@
 "use client";
 
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
+import dynamic from 'next/dynamic';
 import { PageHeader } from "@/components/shared/PageHeader";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogClose } from "@/components/ui/dialog";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge";
 import { useToast } from "@/hooks/use-toast";
@@ -20,6 +20,14 @@ import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover
 import { Calendar } from "@/components/ui/calendar";
 import { format, parseISO, isValid, startOfDay } from 'date-fns';
 import { id as localeID } from 'date-fns/locale';
+
+const DynamicDialog = dynamic(() => import('@/components/ui/dialog').then(mod => mod.Dialog), { ssr: false });
+const DynamicDialogContent = dynamic(() => import('@/components/ui/dialog').then(mod => mod.DialogContent), { ssr: false });
+const DynamicDialogHeader = dynamic(() => import('@/components/ui/dialog').then(mod => mod.DialogHeader), { ssr: false });
+const DynamicDialogTitle = dynamic(() => import('@/components/ui/dialog').then(mod => mod.DialogTitle), { ssr: false });
+const DynamicDialogDescription = dynamic(() => import('@/components/ui/dialog').then(mod => mod.DialogDescription), { ssr: false });
+const DynamicDialogFooter = dynamic(() => import('@/components/ui/dialog').then(mod => mod.DialogFooter), { ssr: false });
+const DynamicDialogClose = dynamic(() => import('@/components/ui/dialog').then(mod => mod.DialogClose), { ssr: false });
 
 export default function AccountsLedgerPage() {
   const { toast } = useToast();
@@ -53,13 +61,13 @@ export default function AccountsLedgerPage() {
   const fetchData = useCallback(async () => {
     setIsLoading(true);
     try {
-      const { data: entriesData, error: entriesError } = await supabase.from('accountLedgerEntries').select('*').order('entryDate', { ascending: false });
+      const { data: entriesData, error: entriesError } = await supabase.from('account_ledger_entries').select('*').order('entry_date', { ascending: false });
       if (entriesError) throw entriesError;
-      setEntries(entriesData as AccountEntry[]);
+      setEntries(entriesData.map(e => ({...e, id: String(e.id)})) as AccountEntry[]);
 
-      const { data: paymentsData, error: paymentsError } = await supabase.from('accountLedgerPayments').select('*').order('paymentDate', { ascending: false });
+      const { data: paymentsData, error: paymentsError } = await supabase.from('account_ledger_payments').select('*').order('payment_date', { ascending: false });
       if (paymentsError) throw paymentsError;
-      setPayments(paymentsData as AccountPayment[]);
+      setPayments(paymentsData.map(p => ({...p, id: String(p.id), accountEntryId: String(p.account_entry_id) })) as AccountPayment[]);
     } catch (error: any) {
       toast({ variant: "destructive", title: "Gagal Memuat Data Buku Besar", description: error.message });
     }
@@ -68,8 +76,8 @@ export default function AccountsLedgerPage() {
 
   useEffect(() => { fetchData(); }, [fetchData]);
 
-  const resetEntryFormFields = useCallback(() => { /* Unchanged */ setEditingEntry(null); setEntityType(undefined); setEntityName(''); setEntryNature(undefined); setEntryDate(startOfDay(new Date())); setDueDate(undefined); setInitialAmount(''); setDescription(''); setEntryStatus('Belum Lunas'); }, []);
-  const handleOpenEntryFormDialog = useCallback((entry?: AccountEntry) => { /* Unchanged */ if (entry) { setEditingEntry(entry); setEntityType(entry.entityType); setEntityName(entry.entityName); setEntryNature(entry.entryNature); setEntryDate(entry.entryDate && isValid(parseISO(entry.entryDate)) ? parseISO(entry.entryDate) : startOfDay(new Date())); setDueDate(entry.dueDate && isValid(parseISO(entry.dueDate)) ? parseISO(entry.dueDate) : undefined); setInitialAmount(entry.initialAmount); setDescription(entry.description); setEntryStatus(entry.status); } else { resetEntryFormFields(); } setIsFormEntryDialogOpen(true); }, [resetEntryFormFields]);
+  const resetEntryFormFields = useCallback(() => { setEditingEntry(null); setEntityType(undefined); setEntityName(''); setEntryNature(undefined); setEntryDate(startOfDay(new Date())); setDueDate(undefined); setInitialAmount(''); setDescription(''); setEntryStatus('Belum Lunas'); }, []);
+  const handleOpenEntryFormDialog = useCallback((entry?: AccountEntry) => { if (entry) { setEditingEntry(entry); setEntityType(entry.entityType); setEntityName(entry.entityName); setEntryNature(entry.entryNature); setEntryDate(entry.entryDate && isValid(parseISO(entry.entryDate)) ? parseISO(entry.entryDate) : startOfDay(new Date())); setDueDate(entry.dueDate && isValid(parseISO(entry.dueDate)) ? parseISO(entry.dueDate) : undefined); setInitialAmount(entry.initialAmount); setDescription(entry.description); setEntryStatus(entry.status); } else { resetEntryFormFields(); } setIsFormEntryDialogOpen(true); }, [resetEntryFormFields]);
 
   const handleSaveEntry = async () => {
     if (!entityType || !entityName.trim() || !entryNature || !entryDate || !initialAmount || !description.trim()) { toast({ variant: "destructive", title: "Data Tidak Lengkap" }); return; }
@@ -78,40 +86,38 @@ export default function AccountsLedgerPage() {
 
     const now = new Date().toISOString();
     const entryDataToSave = {
-      entityType, entityName: entityName.trim(), entryNature, entryDate: format(entryDate, 'yyyy-MM-dd'),
-      dueDate: dueDate ? format(dueDate, 'yyyy-MM-dd') : undefined, initialAmount: parsedInitialAmount,
-      description: description.trim(), updatedAt: now,
-      // For new entries, remainingAmount and status are set based on initialAmount and payments (or default)
-      remainingAmount: editingEntry ? editingEntry.remainingAmount : parsedInitialAmount,
+      entity_type: entityType, entity_name: entityName.trim(), entry_nature: entryNature, entry_date: format(entryDate, 'yyyy-MM-dd'),
+      due_date: dueDate ? format(dueDate, 'yyyy-MM-dd') : undefined, initial_amount: parsedInitialAmount,
+      description: description.trim(), updated_at: now,
+      remaining_amount: editingEntry ? editingEntry.remainingAmount : parsedInitialAmount,
       status: editingEntry ? entryStatus : 'Belum Lunas' as AccountEntryStatus,
     };
 
     if (editingEntry && editingEntry.id) {
       let updatedEntryData = { ...entryDataToSave };
-      if (editingEntry.initialAmount !== parsedInitialAmount) { // Initial amount changed
+      if (editingEntry.initialAmount !== parsedInitialAmount) { 
         const relatedPaymentsTotal = payments.filter(p => p.accountEntryId === editingEntry?.id).reduce((sum, p) => sum + p.amountPaid, 0);
-        updatedEntryData.remainingAmount = parsedInitialAmount - relatedPaymentsTotal;
-        if (updatedEntryData.remainingAmount < 0) updatedEntryData.remainingAmount = 0;
-        if (updatedEntryData.remainingAmount === 0) updatedEntryData.status = 'Lunas';
-        else if (updatedEntryData.remainingAmount < parsedInitialAmount) updatedEntryData.status = 'Sebagian Lunas';
+        updatedEntryData.remaining_amount = parsedInitialAmount - relatedPaymentsTotal;
+        if (updatedEntryData.remaining_amount < 0) updatedEntryData.remaining_amount = 0;
+        if (updatedEntryData.remaining_amount === 0) updatedEntryData.status = 'Lunas';
+        else if (updatedEntryData.remaining_amount < parsedInitialAmount) updatedEntryData.status = 'Sebagian Lunas';
         else updatedEntryData.status = 'Belum Lunas';
       }
-      const { error } = await supabase.from('accountLedgerEntries').update(updatedEntryData).match({ id: editingEntry.id });
+      const { error } = await supabase.from('account_ledger_entries').update(updatedEntryData).match({ id: editingEntry.id });
       if (error) toast({ variant: "destructive", title: "Gagal Update Catatan", description: error.message });
       else { toast({ title: "Catatan Diperbarui" }); fetchData(); }
     } else {
-      const { error } = await supabase.from('accountLedgerEntries').insert([{ ...entryDataToSave, createdAt: now }]);
+      const { error } = await supabase.from('account_ledger_entries').insert([{ ...entryDataToSave, created_at: now }]);
       if (error) toast({ variant: "destructive", title: "Gagal Tambah Catatan", description: error.message });
       else { toast({ title: "Catatan Ditambahkan" }); fetchData(); }
     }
     setIsFormEntryDialogOpen(false);
   };
 
-  const handleDeleteEntry = useCallback(async (entryId: number, entryDesc: string) => {
+  const handleDeleteEntry = useCallback(async (entryId: string, entryDesc: string) => {
     if (window.confirm(`Yakin hapus catatan "${entryDesc}"? Semua pembayaran terkait juga akan dihapus.`)) {
-      // Consider Supabase cascade or RPC
-      await supabase.from('accountLedgerPayments').delete().match({ accountEntryId: entryId });
-      const { error } = await supabase.from('accountLedgerEntries').delete().match({ id: entryId });
+      await supabase.from('account_ledger_payments').delete().match({ account_entry_id: entryId });
+      const { error } = await supabase.from('account_ledger_entries').delete().match({ id: entryId });
       if (error) toast({ variant: "destructive", title: "Gagal Hapus Catatan", description: error.message });
       else { toast({ title: "Catatan Dihapus" }); fetchData(); }
     }
@@ -128,11 +134,11 @@ export default function AccountsLedgerPage() {
 
     const now = new Date().toISOString();
     const newPaymentData = {
-      accountEntryId: selectedEntryForPayment.id, paymentDate: format(paymentDate, 'yyyy-MM-dd'),
-      amountPaid: parsedAmountPaid, paymentMethod: paymentMethod.trim() || undefined,
-      notes: paymentNotes.trim() || undefined, createdAt: now,
+      account_entry_id: selectedEntryForPayment.id, payment_date: format(paymentDate, 'yyyy-MM-dd'),
+      amount_paid: parsedAmountPaid, payment_method: paymentMethod.trim() || undefined,
+      notes: paymentNotes.trim() || undefined, created_at: now,
     };
-    const { error: paymentError } = await supabase.from('accountLedgerPayments').insert([newPaymentData]);
+    const { error: paymentError } = await supabase.from('account_ledger_payments').insert([newPaymentData]);
     if (paymentError) { toast({ variant: "destructive", title: "Gagal Simpan Pembayaran", description: paymentError.message }); return; }
 
     const newRemaining = Math.max(0, selectedEntryForPayment.remainingAmount - parsedAmountPaid);
@@ -140,8 +146,8 @@ export default function AccountsLedgerPage() {
     if (newRemaining === 0) newStatus = 'Lunas';
     else if (newRemaining < selectedEntryForPayment.initialAmount) newStatus = 'Sebagian Lunas';
     
-    const { error: entryUpdateError } = await supabase.from('accountLedgerEntries')
-      .update({ remainingAmount: newRemaining, status: newStatus, updatedAt: now })
+    const { error: entryUpdateError } = await supabase.from('account_ledger_entries')
+      .update({ remaining_amount: newRemaining, status: newStatus, updated_at: now })
       .match({ id: selectedEntryForPayment.id });
     
     if (entryUpdateError) toast({ variant: "destructive", title: "Gagal Update Catatan Induk", description: entryUpdateError.message });
@@ -149,13 +155,11 @@ export default function AccountsLedgerPage() {
     resetPaymentFormFields();
   };
 
-  // UI helpers (getStatusBadgeColor, filteredEntries) remain the same
   const getStatusBadgeColor = (status: AccountEntryStatus) => { switch (status) { case 'Belum Lunas': return 'bg-red-500'; case 'Sebagian Lunas': return 'bg-yellow-500'; case 'Lunas': return 'bg-green-500'; case 'Dihapuskan': return 'bg-gray-500'; default: return 'bg-slate-500'; } };
-  const filteredEntries = useMemo(() => { /* Unchanged */ return entries.filter(entry => { const searchTermLower = searchTerm.toLowerCase(); const matchesSearch = searchTerm ? entry.entityName.toLowerCase().includes(searchTermLower) || entry.description.toLowerCase().includes(searchTermLower) || (typeof entry.id === 'string' && entry.id.toLowerCase().includes(searchTermLower)) : true; const matchesNature = filterNature === 'all' ? true : entry.entryNature === filterNature; const matchesStatus = filterStatus === 'all' ? true : entry.status === filterStatus; return matchesSearch && matchesNature && matchesStatus; }).sort((a, b) => new Date(b.entryDate).getTime() - new Date(a.entryDate).getTime()); }, [entries, searchTerm, filterNature, filterStatus]);
+  const filteredEntries = useMemo(() => { return entries.filter(entry => { const searchTermLower = searchTerm.toLowerCase(); const matchesSearch = searchTerm ? entry.entityName.toLowerCase().includes(searchTermLower) || entry.description.toLowerCase().includes(searchTermLower) || (typeof entry.id === 'string' && entry.id.toLowerCase().includes(searchTermLower)) : true; const matchesNature = filterNature === 'all' ? true : entry.entryNature === filterNature; const matchesStatus = filterStatus === 'all' ? true : entry.status === filterStatus; return matchesSearch && matchesNature && matchesStatus; }).sort((a, b) => new Date(b.entryDate).getTime() - new Date(a.entryDate).getTime()); }, [entries, searchTerm, filterNature, filterStatus]);
 
   if (isLoading && entries.length === 0) { return <div className="flex justify-center items-center h-screen"><p>Memuat data buku keuangan...</p></div>; }
 
-  // JSX structure mostly unchanged, ensure IDs are numbers if using auto-increment PK in Supabase
   return (
     <div className="space-y-6">
       <PageHeader title="Buku Besar Hutang & Piutang" description="Catat dan kelola semua transaksi hutang dan piutang." actions={ <Button onClick={() => handleOpenEntryFormDialog()} className="bg-primary hover:bg-primary/90 text-primary-foreground"><PlusCircle className="mr-2 h-4 w-4" />Tambah Catatan</Button>}/>
@@ -164,29 +168,63 @@ export default function AccountsLedgerPage() {
           {filteredEntries.map((entry) => (<TableRow key={entry.id} className={entry.status === 'Dihapuskan' ? 'opacity-50' : ''}><TableCell className="font-medium">{entry.entityName} <br/><span className="text-xs text-muted-foreground">({entry.entityType})</span></TableCell><TableCell>{entry.entryNature}</TableCell><TableCell className="text-xs">{entry.description}</TableCell><TableCell className="text-right whitespace-nowrap">Rp {entry.initialAmount.toLocaleString()}</TableCell><TableCell className="text-right whitespace-nowrap font-semibold">Rp {entry.remainingAmount.toLocaleString()}</TableCell><TableCell className="text-center"><Badge className={`${getStatusBadgeColor(entry.status)} text-white hover:${getStatusBadgeColor(entry.status)}`}>{entry.status}</Badge></TableCell><TableCell className="text-center">{format(parseISO(entry.entryDate), "dd MMM yyyy", { locale: localeID })}</TableCell><TableCell className="text-center"><div className="flex justify-center items-center gap-1 flex-wrap"><Button variant="outline" size="icon" className="h-7 w-7" onClick={() => handleOpenEntryFormDialog(entry)} title="Edit"><Edit3 className="h-4 w-4" /></Button><Button variant="outline" size="icon" className="h-7 w-7" onClick={() => openPaymentDialog(entry)} title="Pembayaran" disabled={entry.status === 'Lunas' || entry.status === 'Dihapuskan'}><CircleDollarSign className="h-4 w-4" /></Button><Button variant="ghost" size="icon" className="h-7 w-7 text-destructive hover:text-destructive hover:bg-destructive/10" onClick={() => handleDeleteEntry(entry.id, entry.description)} title="Hapus"><Trash2 className="h-4 w-4" /></Button></div></TableCell></TableRow>))}
         </TableBody></Table></div>) : (<Card className="w-full text-center shadow-none border-dashed py-10"><CardHeader className="items-center"><BookOpenText className="w-16 h-16 text-muted-foreground mb-4" /><CardTitle className="text-xl text-foreground">{searchTerm || filterNature !== 'all' || filterStatus !== 'all' ? "Catatan Tdk Ditemukan" : "Belum Ada Catatan"}</CardTitle></CardHeader><CardContent><p className="text-muted-foreground">{searchTerm || filterNature !== 'all' || filterStatus !== 'all' ? "Tidak ada catatan cocok." : "Klik 'Tambah Catatan'."}</p></CardContent></Card>)}</CardContent>
       </Card>
-      <Dialog open={isFormEntryDialogOpen} onOpenChange={(open) => { setIsFormEntryDialogOpen(open); if (!open) resetEntryFormFields(); }}><DialogContent className="sm:max-w-lg max-h-[90vh] flex flex-col"><DialogHeader className="flex-shrink-0"><DialogTitle>{editingEntry ? 'Edit Catatan' : 'Tambah Catatan Baru'}</DialogTitle></DialogHeader><div className="grid gap-y-3 gap-x-4 py-2 flex-grow overflow-y-auto pr-3 text-sm">
-        <div className="grid grid-cols-4 items-center"><Label htmlFor="entityType" className="text-right col-span-1 pr-3">Tipe<span className="text-destructive">*</span></Label><Select value={entityType} onValueChange={(v) => setEntityType(v as AccountEntryType)}><SelectTrigger className="col-span-3"><SelectValue placeholder="Pilih tipe"/></SelectTrigger><SelectContent><SelectItem value="Pelanggan">Pelanggan</SelectItem><SelectItem value="Partner Bengkel">Partner Bengkel</SelectItem><SelectItem value="Supplier">Supplier</SelectItem><SelectItem value="Operasional & Lainnya">Operasional & Lainnya</SelectItem></SelectContent></Select></div>
-        <div className="grid grid-cols-4 items-center"><Label htmlFor="entityName" className="text-right col-span-1 pr-3">Nama<span className="text-destructive">*</span></Label><Input id="entityName" value={entityName} onChange={(e) => setEntityName(e.target.value)} className="col-span-3" /></div>
-        <div className="grid grid-cols-4 items-center"><Label htmlFor="entryNature" className="text-right col-span-1 pr-3">Sifat<span className="text-destructive">*</span></Label><Select value={entryNature} onValueChange={(v) => setEntryNature(v as AccountEntryNature)}><SelectTrigger className="col-span-3"><SelectValue placeholder="Pilih sifat"/></SelectTrigger><SelectContent><SelectItem value="Piutang Usaha">Piutang Usaha</SelectItem><SelectItem value="Hutang Usaha">Hutang Usaha</SelectItem><SelectItem value="Piutang Lainnya">Piutang Lainnya</SelectItem><SelectItem value="Hutang Lainnya">Hutang Lainnya</SelectItem></SelectContent></Select></div>
-        <div className="grid grid-cols-4 items-center"><Label htmlFor="entryDate" className="text-right col-span-1 pr-3">Tgl. Trans<span className="text-destructive">*</span></Label><Popover><PopoverTrigger asChild><Button variant={"outline"} className={`col-span-3 justify-start text-left font-normal ${!entryDate && "text-muted-foreground"}`}><CalendarIcon className="mr-2 h-4 w-4" />{entryDate ? format(entryDate, "PPP", { locale: localeID }) : <span>Pilih</span>}</Button></PopoverTrigger><PopoverContent className="w-auto p-0"><Calendar mode="single" selected={entryDate} onSelect={setEntryDate} initialFocus /></PopoverContent></Popover></div>
-        <div className="grid grid-cols-4 items-center"><Label htmlFor="dueDate" className="text-right col-span-1 pr-3">Jatuh Tempo</Label><Popover><PopoverTrigger asChild><Button variant={"outline"} className={`col-span-3 justify-start text-left font-normal ${!dueDate && "text-muted-foreground"}`}><CalendarIcon className="mr-2 h-4 w-4" />{dueDate ? format(dueDate, "PPP", { locale: localeID }) : <span>Pilih (opsional)</span>}</Button></PopoverTrigger><PopoverContent className="w-auto p-0"><Calendar mode="single" selected={dueDate} onSelect={setDueDate} /></PopoverContent></Popover></div>
-        <div className="grid grid-cols-4 items-center"><Label htmlFor="initialAmount" className="text-right col-span-1 pr-3">Jml Awal (Rp)<span className="text-destructive">*</span></Label><Input id="initialAmount" type="number" value={initialAmount} onChange={(e) => setInitialAmount(e.target.value)} className="col-span-3" disabled={!!editingEntry && payments.some(p => p.accountEntryId === editingEntry?.id)} title={editingEntry && payments.some(p => p.accountEntryId === editingEntry?.id) ? "Tdk bisa diubah jika ada pembayaran." : ""} /></div>
-        <div className="grid grid-cols-4 items-start"><Label htmlFor="description" className="text-right col-span-1 pt-2 pr-3">Deskripsi<span className="text-destructive">*</span></Label><Textarea id="description" value={description} onChange={(e) => setDescription(e.target.value)} className="col-span-3" rows={3}/></div>
-        {editingEntry && (<div className="grid grid-cols-4 items-center"><Label htmlFor="entryStatus" className="text-right col-span-1 pr-3">Status<span className="text-destructive">*</span></Label><Select value={entryStatus} onValueChange={(v) => setEntryStatus(v as AccountEntryStatus)}><SelectTrigger className="col-span-3"><SelectValue/></SelectTrigger><SelectContent><SelectItem value="Belum Lunas">Belum Lunas</SelectItem><SelectItem value="Sebagian Lunas">Sebagian Lunas</SelectItem><SelectItem value="Lunas">Lunas</SelectItem><SelectItem value="Dihapuskan">Dihapuskan</SelectItem></SelectContent></Select></div>)}
-      </div><DialogFooter className="flex-shrink-0 pt-4 border-t"><DialogClose asChild><Button type="button" variant="outline">Batal</Button></DialogClose><Button type="button" onClick={handleSaveEntry} className="bg-primary hover:bg-primary/90 text-primary-foreground">Simpan</Button></DialogFooter></DialogContent></Dialog>
-      {selectedEntryForPayment && (<Dialog open={isPaymentDialogOpen} onOpenChange={(open) => { setIsPaymentDialogOpen(open); if(!open) setSelectedEntryForPayment(null); }}><DialogContent className="sm:max-w-2xl max-h-[90vh] flex flex-col"><DialogHeader><DialogTitle>Kelola Pembayaran: {selectedEntryForPayment.entityName}</DialogTitle><DialogDescription>Transaksi: {selectedEntryForPayment.description} <br/>Jml Awal: Rp {selectedEntryForPayment.initialAmount.toLocaleString()} | Sisa: Rp <span className="font-bold text-destructive">{selectedEntryForPayment.remainingAmount.toLocaleString()}</span> | Status: <Badge className={`${getStatusBadgeColor(selectedEntryForPayment.status)} text-white`}>{selectedEntryForPayment.status}</Badge></DialogDescription></DialogHeader><div className="flex-grow grid md:grid-cols-2 gap-6 overflow-y-auto p-1">
-        <div className="space-y-4 border-r-0 md:border-r md:pr-6"><h3 className="text-md font-semibold">Tambah Pembayaran</h3>
-          <div className="grid grid-cols-4 items-center gap-4"><Label htmlFor="paymentDateForm" className="text-right col-span-1">Tgl Bayar<span className="text-destructive">*</span></Label><Popover><PopoverTrigger asChild><Button variant={"outline"} className={`col-span-3 justify-start text-left font-normal ${!paymentDate && "text-muted-foreground"}`}><CalendarIcon className="mr-2 h-4 w-4" />{paymentDate ? format(paymentDate, "PPP", { locale: localeID }) : <span>Pilih</span>}</Button></PopoverTrigger><PopoverContent className="w-auto p-0"><Calendar mode="single" selected={paymentDate} onSelect={setPaymentDate} initialFocus /></PopoverContent></Popover></div>
-          <div className="grid grid-cols-4 items-center gap-4"><Label htmlFor="amountPaidForm" className="text-right col-span-1">Jumlah (Rp)<span className="text-destructive">*</span></Label><Input id="amountPaidForm" type="number" value={amountPaid} onChange={e => setAmountPaid(e.target.value)} className="col-span-3"/></div>
-          <div className="grid grid-cols-4 items-center gap-4"><Label htmlFor="paymentMethodForm" className="text-right col-span-1">Metode</Label><Input id="paymentMethodForm" value={paymentMethod} onChange={e => setPaymentMethod(e.target.value)} className="col-span-3" placeholder="Tunai, Transfer (Opsional)"/></div>
-          <div className="grid grid-cols-4 items-start gap-4"><Label htmlFor="paymentNotesForm" className="text-right col-span-1 pt-2">Catatan</Label><Textarea id="paymentNotesForm" value={paymentNotes} onChange={e => setPaymentNotes(e.target.value)} className="col-span-3" rows={2}/></div>
-          <Button onClick={handleSavePayment} className="w-full bg-primary hover:bg-primary/90 text-primary-foreground" disabled={selectedEntryForPayment.status === 'Lunas' || selectedEntryForPayment.status === 'Dihapuskan'}><PlusCircle className="mr-2 h-4 w-4"/> Simpan</Button>
-          {(selectedEntryForPayment.status === 'Lunas' || selectedEntryForPayment.status === 'Dihapuskan') && <p className="text-xs text-center text-muted-foreground">Transaksi sudah lunas/dihapus.</p>}
-        </div>
-        <div className="space-y-2"><h3 className="text-md font-semibold">Riwayat Pembayaran</h3>{payments.filter(p => p.accountEntryId === selectedEntryForPayment.id).length > 0 ? (<div className="max-h-72 overflow-y-auto"><Table><TableHeader><TableRow><TableHead>Tgl Bayar</TableHead><TableHead className="text-right">Jumlah</TableHead><TableHead>Metode</TableHead><TableHead>Catatan</TableHead></TableRow></TableHeader><TableBody>
-          {payments.filter(p => p.accountEntryId === selectedEntryForPayment.id).sort((a,b) => new Date(b.paymentDate).getTime() - new Date(a.paymentDate).getTime()).map(p => (<TableRow key={p.id}><TableCell className="text-xs">{format(parseISO(p.paymentDate), "dd MMM yy", { locale: localeID })}</TableCell><TableCell className="text-right text-xs">Rp {p.amountPaid.toLocaleString()}</TableCell><TableCell className="text-xs">{p.paymentMethod || '-'}</TableCell><TableCell className="text-xs">{p.notes || '-'}</TableCell></TableRow>))}
-        </TableBody></Table></div>) : (<p className="text-muted-foreground text-center text-sm py-4">Belum ada pembayaran.</p>)}</div>
-      </div><DialogFooter className="mt-4 pt-4 border-t"><DialogClose asChild><Button variant="outline">Tutup</Button></DialogClose></DialogFooter></DialogContent></Dialog>)}
+      {isFormEntryDialogOpen && (
+        <DynamicDialog open={isFormEntryDialogOpen} onOpenChange={(open) => { setIsFormEntryDialogOpen(open); if (!open) resetEntryFormFields(); }}>
+          <DynamicDialogContent className="sm:max-w-lg max-h-[90vh] flex flex-col">
+            <DynamicDialogHeader className="flex-shrink-0">
+              <DynamicDialogTitle>{editingEntry ? 'Edit Catatan' : 'Tambah Catatan Baru'}</DynamicDialogTitle>
+            </DynamicDialogHeader>
+            <div className="grid gap-y-3 gap-x-4 py-2 flex-grow overflow-y-auto pr-3 text-sm">
+              <div className="grid grid-cols-4 items-center"><Label htmlFor="entityType" className="text-right col-span-1 pr-3">Tipe<span className="text-destructive">*</span></Label><Select value={entityType} onValueChange={(v) => setEntityType(v as AccountEntryType)}><SelectTrigger className="col-span-3"><SelectValue placeholder="Pilih tipe"/></SelectTrigger><SelectContent><SelectItem value="Pelanggan">Pelanggan</SelectItem><SelectItem value="Partner Bengkel">Partner Bengkel</SelectItem><SelectItem value="Supplier">Supplier</SelectItem><SelectItem value="Operasional & Lainnya">Operasional & Lainnya</SelectItem></SelectContent></Select></div>
+              <div className="grid grid-cols-4 items-center"><Label htmlFor="entityName" className="text-right col-span-1 pr-3">Nama<span className="text-destructive">*</span></Label><Input id="entityName" value={entityName} onChange={(e) => setEntityName(e.target.value)} className="col-span-3" /></div>
+              <div className="grid grid-cols-4 items-center"><Label htmlFor="entryNature" className="text-right col-span-1 pr-3">Sifat<span className="text-destructive">*</span></Label><Select value={entryNature} onValueChange={(v) => setEntryNature(v as AccountEntryNature)}><SelectTrigger className="col-span-3"><SelectValue placeholder="Pilih sifat"/></SelectTrigger><SelectContent><SelectItem value="Piutang Usaha">Piutang Usaha</SelectItem><SelectItem value="Hutang Usaha">Hutang Usaha</SelectItem><SelectItem value="Piutang Lainnya">Piutang Lainnya</SelectItem><SelectItem value="Hutang Lainnya">Hutang Lainnya</SelectItem></SelectContent></Select></div>
+              <div className="grid grid-cols-4 items-center"><Label htmlFor="entryDate" className="text-right col-span-1 pr-3">Tgl. Trans<span className="text-destructive">*</span></Label><Popover><PopoverTrigger asChild><Button variant={"outline"} className={`col-span-3 justify-start text-left font-normal ${!entryDate && "text-muted-foreground"}`}><CalendarIcon className="mr-2 h-4 w-4" />{entryDate ? format(entryDate, "PPP", { locale: localeID }) : <span>Pilih</span>}</Button></PopoverTrigger><PopoverContent className="w-auto p-0"><Calendar mode="single" selected={entryDate} onSelect={setEntryDate} initialFocus /></PopoverContent></Popover></div>
+              <div className="grid grid-cols-4 items-center"><Label htmlFor="dueDate" className="text-right col-span-1 pr-3">Jatuh Tempo</Label><Popover><PopoverTrigger asChild><Button variant={"outline"} className={`col-span-3 justify-start text-left font-normal ${!dueDate && "text-muted-foreground"}`}><CalendarIcon className="mr-2 h-4 w-4" />{dueDate ? format(dueDate, "PPP", { locale: localeID }) : <span>Pilih (opsional)</span>}</Button></PopoverTrigger><PopoverContent className="w-auto p-0"><Calendar mode="single" selected={dueDate} onSelect={setDueDate} /></PopoverContent></Popover></div>
+              <div className="grid grid-cols-4 items-center"><Label htmlFor="initialAmount" className="text-right col-span-1 pr-3">Jml Awal (Rp)<span className="text-destructive">*</span></Label><Input id="initialAmount" type="number" value={initialAmount} onChange={(e) => setInitialAmount(e.target.value)} className="col-span-3" disabled={!!editingEntry && payments.some(p => p.accountEntryId === editingEntry?.id)} title={editingEntry && payments.some(p => p.accountEntryId === editingEntry?.id) ? "Tdk bisa diubah jika ada pembayaran." : ""} /></div>
+              <div className="grid grid-cols-4 items-start"><Label htmlFor="description" className="text-right col-span-1 pt-2 pr-3">Deskripsi<span className="text-destructive">*</span></Label><Textarea id="description" value={description} onChange={(e) => setDescription(e.target.value)} className="col-span-3" rows={3}/></div>
+              {editingEntry && (<div className="grid grid-cols-4 items-center"><Label htmlFor="entryStatus" className="text-right col-span-1 pr-3">Status<span className="text-destructive">*</span></Label><Select value={entryStatus} onValueChange={(v) => setEntryStatus(v as AccountEntryStatus)}><SelectTrigger className="col-span-3"><SelectValue/></SelectTrigger><SelectContent><SelectItem value="Belum Lunas">Belum Lunas</SelectItem><SelectItem value="Sebagian Lunas">Sebagian Lunas</SelectItem><SelectItem value="Lunas">Lunas</SelectItem><SelectItem value="Dihapuskan">Dihapuskan</SelectItem></SelectContent></Select></div>)}
+            </div>
+            <DynamicDialogFooter className="flex-shrink-0 pt-4 border-t">
+              <DynamicDialogClose asChild><Button type="button" variant="outline">Batal</Button></DynamicDialogClose>
+              <Button type="button" onClick={handleSaveEntry} className="bg-primary hover:bg-primary/90 text-primary-foreground">Simpan</Button>
+            </DynamicDialogFooter>
+          </DynamicDialogContent>
+        </DynamicDialog>
+      )}
+      {selectedEntryForPayment && (
+        <DynamicDialog open={isPaymentDialogOpen} onOpenChange={(open) => { setIsPaymentDialogOpen(open); if(!open) setSelectedEntryForPayment(null); }}>
+          <DynamicDialogContent className="sm:max-w-2xl max-h-[90vh] flex flex-col">
+            <DynamicDialogHeader>
+              <DynamicDialogTitle>Kelola Pembayaran: {selectedEntryForPayment.entityName}</DynamicDialogTitle>
+              <DynamicDialogDescription>Transaksi: {selectedEntryForPayment.description} <br/>Jml Awal: Rp {selectedEntryForPayment.initialAmount.toLocaleString()} | Sisa: Rp <span className="font-bold text-destructive">{selectedEntryForPayment.remainingAmount.toLocaleString()}</span> | Status: <Badge className={`${getStatusBadgeColor(selectedEntryForPayment.status)} text-white`}>{selectedEntryForPayment.status}</Badge></DynamicDialogDescription>
+            </DynamicDialogHeader>
+            <div className="flex-grow grid md:grid-cols-2 gap-6 overflow-y-auto p-1">
+              <div className="space-y-4 border-r-0 md:border-r md:pr-6">
+                <h3 className="text-md font-semibold">Tambah Pembayaran</h3>
+                <div className="grid grid-cols-4 items-center gap-4"><Label htmlFor="paymentDateForm" className="text-right col-span-1">Tgl Bayar<span className="text-destructive">*</span></Label><Popover><PopoverTrigger asChild><Button variant={"outline"} className={`col-span-3 justify-start text-left font-normal ${!paymentDate && "text-muted-foreground"}`}><CalendarIcon className="mr-2 h-4 w-4" />{paymentDate ? format(paymentDate, "PPP", { locale: localeID }) : <span>Pilih</span>}</Button></PopoverTrigger><PopoverContent className="w-auto p-0"><Calendar mode="single" selected={paymentDate} onSelect={setPaymentDate} initialFocus /></PopoverContent></Popover></div>
+                <div className="grid grid-cols-4 items-center gap-4"><Label htmlFor="amountPaidForm" className="text-right col-span-1">Jumlah (Rp)<span className="text-destructive">*</span></Label><Input id="amountPaidForm" type="number" value={amountPaid} onChange={e => setAmountPaid(e.target.value)} className="col-span-3"/></div>
+                <div className="grid grid-cols-4 items-center gap-4"><Label htmlFor="paymentMethodForm" className="text-right col-span-1">Metode</Label><Input id="paymentMethodForm" value={paymentMethod} onChange={e => setPaymentMethod(e.target.value)} className="col-span-3" placeholder="Tunai, Transfer (Opsional)"/></div>
+                <div className="grid grid-cols-4 items-start gap-4"><Label htmlFor="paymentNotesForm" className="text-right col-span-1 pt-2">Catatan</Label><Textarea id="paymentNotesForm" value={paymentNotes} onChange={e => setPaymentNotes(e.target.value)} className="col-span-3" rows={2}/></div>
+                <Button onClick={handleSavePayment} className="w-full bg-primary hover:bg-primary/90 text-primary-foreground" disabled={selectedEntryForPayment.status === 'Lunas' || selectedEntryForPayment.status === 'Dihapuskan'}><PlusCircle className="mr-2 h-4 w-4"/> Simpan</Button>
+                {(selectedEntryForPayment.status === 'Lunas' || selectedEntryForPayment.status === 'Dihapuskan') && <p className="text-xs text-center text-muted-foreground">Transaksi sudah lunas/dihapus.</p>}
+              </div>
+              <div className="space-y-2">
+                <h3 className="text-md font-semibold">Riwayat Pembayaran</h3>
+                {payments.filter(p => p.accountEntryId === selectedEntryForPayment.id).length > 0 ? (
+                  <div className="max-h-72 overflow-y-auto">
+                    <Table><TableHeader><TableRow><TableHead>Tgl Bayar</TableHead><TableHead className="text-right">Jumlah</TableHead><TableHead>Metode</TableHead><TableHead>Catatan</TableHead></TableRow></TableHeader><TableBody>
+                      {payments.filter(p => p.accountEntryId === selectedEntryForPayment.id).sort((a,b) => new Date(b.paymentDate).getTime() - new Date(a.paymentDate).getTime()).map(p => (<TableRow key={p.id}><TableCell className="text-xs">{format(parseISO(p.paymentDate), "dd MMM yy", { locale: localeID })}</TableCell><TableCell className="text-right text-xs">Rp {p.amountPaid.toLocaleString()}</TableCell><TableCell className="text-xs">{p.paymentMethod || '-'}</TableCell><TableCell className="text-xs">{p.notes || '-'}</TableCell></TableRow>))}
+                    </TableBody></Table>
+                  </div>
+                ) : (<p className="text-muted-foreground text-center text-sm py-4">Belum ada pembayaran.</p>)}
+              </div>
+            </div>
+            <DynamicDialogFooter className="mt-4 pt-4 border-t">
+              <DynamicDialogClose asChild><Button variant="outline">Tutup</Button></DynamicDialogClose>
+            </DynamicDialogFooter>
+          </DynamicDialogContent>
+        </DynamicDialog>
+      )}
     </div>
   );
 }

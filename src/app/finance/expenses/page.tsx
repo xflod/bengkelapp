@@ -2,13 +2,13 @@
 "use client";
 
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
+import dynamic from 'next/dynamic';
 import { PageHeader } from "@/components/shared/PageHeader";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogClose } from "@/components/ui/dialog";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useToast } from "@/hooks/use-toast";
 import type { Expense, ExpenseCategory } from "@/lib/types";
@@ -19,6 +19,14 @@ import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover
 import { Calendar } from "@/components/ui/calendar";
 import { format, parseISO, isValid, startOfDay } from 'date-fns';
 import { id as localeID } from 'date-fns/locale';
+
+const DynamicDialog = dynamic(() => import('@/components/ui/dialog').then(mod => mod.Dialog), { ssr: false });
+const DynamicDialogContent = dynamic(() => import('@/components/ui/dialog').then(mod => mod.DialogContent), { ssr: false });
+const DynamicDialogHeader = dynamic(() => import('@/components/ui/dialog').then(mod => mod.DialogHeader), { ssr: false });
+const DynamicDialogTitle = dynamic(() => import('@/components/ui/dialog').then(mod => mod.DialogTitle), { ssr: false });
+const DynamicDialogFooter = dynamic(() => import('@/components/ui/dialog').then(mod => mod.DialogFooter), { ssr: false });
+const DynamicDialogClose = dynamic(() => import('@/components/ui/dialog').then(mod => mod.DialogClose), { ssr: false });
+
 
 const EXPENSE_CATEGORIES: ExpenseCategory[] = ['Operasional Bengkel', 'Gaji & Komisi', 'Pembelian Alat & Aset', 'Promosi & Marketing', 'Administrasi & Pajak', 'Biaya Tak Terduga', 'Lainnya'];
 
@@ -40,7 +48,7 @@ export default function ExpensesPage() {
 
   const fetchExpenses = useCallback(async () => {
     setIsLoading(true);
-    const { data, error } = await supabase.from('expensesData').select('*').order('expenseDate', { ascending: false });
+    const { data, error } = await supabase.from('expenses_data').select('*').order('expense_date', { ascending: false });
     if (error) {
       toast({ variant: "destructive", title: "Gagal Memuat Pengeluaran", description: error.message });
       setExpenses([]);
@@ -64,31 +72,31 @@ export default function ExpensesPage() {
 
     const now = new Date().toISOString();
     const expenseDataToSave = {
-      expenseDate: format(expenseDate, 'yyyy-MM-dd'), category, description: description.trim(),
-      amount: parsedAmount, notes: notes.trim() || undefined, updatedAt: now,
+      expense_date: format(expenseDate, 'yyyy-MM-dd'), category, description: description.trim(),
+      amount: parsedAmount, notes: notes.trim() || undefined, updated_at: now,
     };
 
     if (editingExpense && editingExpense.id) {
-      const { error } = await supabase.from('expensesData').update(expenseDataToSave).match({ id: editingExpense.id });
+      const { error } = await supabase.from('expenses_data').update(expenseDataToSave).match({ id: editingExpense.id });
       if (error) toast({ variant: "destructive", title: "Gagal Update Pengeluaran", description: error.message });
       else { toast({ title: "Pengeluaran Diperbarui" }); fetchExpenses(); }
     } else {
-      const { error } = await supabase.from('expensesData').insert([{ ...expenseDataToSave, createdAt: now }]);
+      const { error } = await supabase.from('expenses_data').insert([{ ...expenseDataToSave, created_at: now }]);
       if (error) toast({ variant: "destructive", title: "Gagal Tambah Pengeluaran", description: error.message });
       else { toast({ title: "Pengeluaran Ditambahkan" }); fetchExpenses(); }
     }
     setIsFormOpen(false);
   };
 
-  const handleDeleteExpense = useCallback(async (expenseId: number) => {
+  const handleDeleteExpense = useCallback(async (expenseId: string) => {
     if (window.confirm("Yakin ingin menghapus catatan pengeluaran ini?")) {
-      const { error } = await supabase.from('expensesData').delete().match({ id: expenseId });
+      const { error } = await supabase.from('expenses_data').delete().match({ id: expenseId });
       if (error) toast({ variant: "destructive", title: "Gagal Hapus Pengeluaran", description: error.message });
       else { toast({ title: "Pengeluaran Dihapus" }); fetchExpenses(); }
     }
   }, [toast, fetchExpenses]);
   
-  const filteredExpenses = useMemo(() => { /* Unchanged */ return expenses.filter(expense => { const searchTermLower = searchTerm.toLowerCase(); const matchesSearch = searchTerm ? expense.description.toLowerCase().includes(searchTermLower) || (expense.notes && expense.notes.toLowerCase().includes(searchTermLower)) || (typeof expense.id === 'string' && expense.id.toLowerCase().includes(searchTermLower)) : true; const matchesCategory = filterCategory === 'all' ? true : expense.category === filterCategory; return matchesSearch && matchesCategory; }).sort((a, b) => new Date(b.expenseDate).getTime() - new Date(a.expenseDate).getTime()); }, [expenses, searchTerm, filterCategory]);
+  const filteredExpenses = useMemo(() => { return expenses.filter(expense => { const searchTermLower = searchTerm.toLowerCase(); const matchesSearch = searchTerm ? expense.description.toLowerCase().includes(searchTermLower) || (expense.notes && expense.notes.toLowerCase().includes(searchTermLower)) || (typeof expense.id === 'string' && expense.id.toLowerCase().includes(searchTermLower)) : true; const matchesCategory = filterCategory === 'all' ? true : expense.category === filterCategory; return matchesSearch && matchesCategory; }).sort((a, b) => new Date(b.expenseDate).getTime() - new Date(a.expenseDate).getTime()); }, [expenses, searchTerm, filterCategory]);
 
   if (isLoading && expenses.length === 0) {
     return <div className="flex justify-center items-center h-screen"><p>Memuat data pengeluaran...</p></div>;
@@ -103,13 +111,26 @@ export default function ExpensesPage() {
           {filteredExpenses.map((expense) => (<TableRow key={expense.id}><TableCell>{format(parseISO(expense.expenseDate), "dd MMM yyyy", { locale: localeID })}</TableCell><TableCell>{expense.category}</TableCell><TableCell className="font-medium">{expense.description}</TableCell><TableCell className="text-right whitespace-nowrap">Rp {expense.amount.toLocaleString()}</TableCell><TableCell className="text-xs">{expense.notes || '-'}</TableCell><TableCell className="text-center"><div className="flex justify-center items-center gap-1 flex-wrap"><Button variant="outline" size="icon" className="h-7 w-7" onClick={() => handleOpenFormDialog(expense)} title="Edit"><Edit3 className="h-4 w-4" /></Button><Button variant="ghost" size="icon" className="h-7 w-7 text-destructive hover:text-destructive hover:bg-destructive/10" onClick={() => handleDeleteExpense(expense.id)} title="Hapus"><Trash2 className="h-4 w-4" /></Button></div></TableCell></TableRow>))}
         </TableBody></Table></div>) : (<Card className="w-full text-center shadow-none border-dashed py-10"><CardHeader className="items-center"><ReceiptText className="w-16 h-16 text-muted-foreground mb-4" /><CardTitle className="text-xl text-foreground">{searchTerm || filterCategory !== 'all' ? "Pengeluaran Tdk Ditemukan" : "Belum Ada Pengeluaran"}</CardTitle></CardHeader><CardContent><p className="text-muted-foreground">{searchTerm || filterCategory !== 'all' ? "Tidak ada pengeluaran cocok." : "Klik 'Tambah Pengeluaran'."}</p></CardContent></Card>)}</CardContent>
       </Card>
-      <Dialog open={isFormOpen} onOpenChange={(open) => { setIsFormOpen(open); if (!open) resetFormFields(); }}><DialogContent className="sm:max-w-lg max-h-[90vh] flex flex-col"><DialogHeader className="flex-shrink-0"><DialogTitle>{editingExpense ? 'Edit Pengeluaran' : 'Tambah Pengeluaran'}</DialogTitle></DialogHeader><div className="grid gap-y-3 gap-x-4 py-2 flex-grow overflow-y-auto pr-3 text-sm">
-        <div className="grid grid-cols-4 items-center"><Label htmlFor="expenseDate" className="text-right col-span-4 sm:col-span-1 pr-3">Tgl.<span className="text-destructive">*</span></Label><Popover><PopoverTrigger asChild><Button variant={"outline"} className={`col-span-4 sm:col-span-3 justify-start text-left font-normal ${!expenseDate && "text-muted-foreground"}`}><CalendarIcon className="mr-2 h-4 w-4" />{expenseDate ? format(expenseDate, "PPP", { locale: localeID }) : <span>Pilih</span>}</Button></PopoverTrigger><PopoverContent className="w-auto p-0"><Calendar mode="single" selected={expenseDate} onSelect={setExpenseDate} initialFocus /></PopoverContent></Popover></div>
-        <div className="grid grid-cols-4 items-center"><Label htmlFor="category" className="text-right col-span-4 sm:col-span-1 pr-3">Kategori<span className="text-destructive">*</span></Label><Select value={category} onValueChange={(v) => setCategory(v as ExpenseCategory)}><SelectTrigger className="col-span-4 sm:col-span-3"><SelectValue placeholder="Pilih kategori"/></SelectTrigger><SelectContent>{EXPENSE_CATEGORIES.map(cat => (<SelectItem key={cat} value={cat}>{cat}</SelectItem>))}</SelectContent></Select></div>
-        <div className="grid grid-cols-4 items-center"><Label htmlFor="amount" className="text-right col-span-4 sm:col-span-1 pr-3">Jumlah (Rp)<span className="text-destructive">*</span></Label><Input id="amount" type="number" value={amount} onChange={(e) => setAmount(e.target.value)} className="col-span-4 sm:col-span-3"/></div>
-        <div className="grid grid-cols-4 items-start"><Label htmlFor="description" className="text-right col-span-4 sm:col-span-1 pt-2 pr-3">Deskripsi<span className="text-destructive">*</span></Label><Textarea id="description" value={description} onChange={(e) => setDescription(e.target.value)} className="col-span-4 sm:col-span-3" rows={2}/></div>
-        <div className="grid grid-cols-4 items-start"><Label htmlFor="notes" className="text-right col-span-4 sm:col-span-1 pt-2 pr-3">Catatan</Label><Textarea id="notes" value={notes} onChange={(e) => setNotes(e.target.value)} className="col-span-4 sm:col-span-3" rows={3}/></div>
-      </div><DialogFooter className="flex-shrink-0 pt-4 border-t"><DialogClose asChild><Button type="button" variant="outline">Batal</Button></DialogClose><Button type="button" onClick={handleSaveExpense} className="bg-primary hover:bg-primary/90 text-primary-foreground">Simpan</Button></DialogFooter></DialogContent></Dialog>
+      {isFormOpen && (
+        <DynamicDialog open={isFormOpen} onOpenChange={(open) => { setIsFormOpen(open); if (!open) resetFormFields(); }}>
+          <DynamicDialogContent className="sm:max-w-lg max-h-[90vh] flex flex-col">
+            <DynamicDialogHeader className="flex-shrink-0">
+              <DynamicDialogTitle>{editingExpense ? 'Edit Pengeluaran' : 'Tambah Pengeluaran'}</DynamicDialogTitle>
+            </DynamicDialogHeader>
+            <div className="grid gap-y-3 gap-x-4 py-2 flex-grow overflow-y-auto pr-3 text-sm">
+              <div className="grid grid-cols-4 items-center"><Label htmlFor="expenseDate" className="text-right col-span-4 sm:col-span-1 pr-3">Tgl.<span className="text-destructive">*</span></Label><Popover><PopoverTrigger asChild><Button variant={"outline"} className={`col-span-4 sm:col-span-3 justify-start text-left font-normal ${!expenseDate && "text-muted-foreground"}`}><CalendarIcon className="mr-2 h-4 w-4" />{expenseDate ? format(expenseDate, "PPP", { locale: localeID }) : <span>Pilih</span>}</Button></PopoverTrigger><PopoverContent className="w-auto p-0"><Calendar mode="single" selected={expenseDate} onSelect={setExpenseDate} initialFocus /></PopoverContent></Popover></div>
+              <div className="grid grid-cols-4 items-center"><Label htmlFor="category" className="text-right col-span-4 sm:col-span-1 pr-3">Kategori<span className="text-destructive">*</span></Label><Select value={category} onValueChange={(v) => setCategory(v as ExpenseCategory)}><SelectTrigger className="col-span-4 sm:col-span-3"><SelectValue placeholder="Pilih kategori"/></SelectTrigger><SelectContent>{EXPENSE_CATEGORIES.map(cat => (<SelectItem key={cat} value={cat}>{cat}</SelectItem>))}</SelectContent></Select></div>
+              <div className="grid grid-cols-4 items-center"><Label htmlFor="amount" className="text-right col-span-4 sm:col-span-1 pr-3">Jumlah (Rp)<span className="text-destructive">*</span></Label><Input id="amount" type="number" value={amount} onChange={(e) => setAmount(e.target.value)} className="col-span-4 sm:col-span-3"/></div>
+              <div className="grid grid-cols-4 items-start"><Label htmlFor="description" className="text-right col-span-4 sm:col-span-1 pt-2 pr-3">Deskripsi<span className="text-destructive">*</span></Label><Textarea id="description" value={description} onChange={(e) => setDescription(e.target.value)} className="col-span-4 sm:col-span-3" rows={2}/></div>
+              <div className="grid grid-cols-4 items-start"><Label htmlFor="notes" className="text-right col-span-4 sm:col-span-1 pt-2 pr-3">Catatan</Label><Textarea id="notes" value={notes} onChange={(e) => setNotes(e.target.value)} className="col-span-4 sm:col-span-3" rows={3}/></div>
+            </div>
+            <DynamicDialogFooter className="flex-shrink-0 pt-4 border-t">
+              <DynamicDialogClose asChild><Button type="button" variant="outline">Batal</Button></DynamicDialogClose>
+              <Button type="button" onClick={handleSaveExpense} className="bg-primary hover:bg-primary/90 text-primary-foreground">Simpan</Button>
+            </DynamicDialogFooter>
+          </DynamicDialogContent>
+        </DynamicDialog>
+      )}
     </div>
   );
 }

@@ -2,13 +2,13 @@
 "use client";
 
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
+import dynamic from 'next/dynamic';
 import { PageHeader } from "@/components/shared/PageHeader";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogClose } from "@/components/ui/dialog";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Switch } from "@/components/ui/switch";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
@@ -18,6 +18,15 @@ import type { Product, SellingPriceTier, ProductCategory } from "@/lib/types";
 import { supabase } from '@/lib/supabase';
 import { PackagePlus, Edit3, Trash2, Search, Filter, AlertTriangle } from "lucide-react";
 import { Label } from '@/components/ui/label';
+
+const DynamicDialog = dynamic(() => import('@/components/ui/dialog').then(mod => mod.Dialog), { ssr: false });
+const DynamicDialogContent = dynamic(() => import('@/components/ui/dialog').then(mod => mod.DialogContent), { ssr: false });
+const DynamicDialogHeader = dynamic(() => import('@/components/ui/dialog').then(mod => mod.DialogHeader), { ssr: false });
+const DynamicDialogTitle = dynamic(() => import('@/components/ui/dialog').then(mod => mod.DialogTitle), { ssr: false });
+const DynamicDialogDescription = dynamic(() => import('@/components/ui/dialog').then(mod => mod.DialogDescription), { ssr: false });
+const DynamicDialogFooter = dynamic(() => import('@/components/ui/dialog').then(mod => mod.DialogFooter), { ssr: false });
+const DynamicDialogClose = dynamic(() => import('@/components/ui/dialog').then(mod => mod.DialogClose), { ssr: false });
+
 
 type ProductFilter = 'all' | 'lowStock' | 'outOfStock' | 'inactive' | 'allActive';
 
@@ -48,7 +57,7 @@ export default function InventoryPage() {
     const { data, error } = await supabase
       .from('products')
       .select('*')
-      .order('updated_at', { ascending: false }); // Fixed: updatedAt to updated_at
+      .order('updated_at', { ascending: false }); 
 
     if (error) {
       console.error('Error fetching products (raw):', JSON.stringify(error, null, 2));
@@ -65,7 +74,7 @@ export default function InventoryPage() {
     } else {
       const transformedData = data.map(p => ({
         ...p,
-        id: String(p.id), // Ensure id is string for consistency if used as key
+        id: String(p.id), 
         sellingPrices: typeof p.selling_prices === 'string' ? JSON.parse(p.selling_prices) : p.selling_prices,
         costPrice: p.cost_price,
         stockQuantity: p.stock_quantity,
@@ -243,7 +252,6 @@ export default function InventoryPage() {
         case 'allActive': tempProducts = tempProducts.filter(p => p.isActive); break;
         case 'all': break;
     }
-    // No need to sort by updatedAt here as fetchProducts already does it
     return tempProducts;
   }, [products, searchTerm, activeFilter]);
 
@@ -366,42 +374,46 @@ export default function InventoryPage() {
         </CardContent>
       </Card>
 
-      <Dialog open={isFormDialogOpen} onOpenChange={(open) => { setIsFormDialogOpen(open); if (!open) resetFormFields(); }}>
-        <DialogContent className="sm:max-w-lg max-h-[90vh] flex flex-col">
-          <DialogHeader className="flex-shrink-0">
-            <DialogTitle>{editingProduct ? 'Edit Item Inventaris' : 'Tambah Item Baru ke Inventaris'}</DialogTitle>
-            <DialogDescription>{editingProduct ? `Mengedit detail untuk ${editingProduct.name}.` : 'Masukkan detail item baru.'}</DialogDescription>
-          </DialogHeader>
-          <div className="grid gap-y-3 gap-x-4 py-2 flex-grow overflow-y-auto pr-3 text-sm">
-            <div className="grid grid-cols-4 items-center"><Label htmlFor="sku" className="text-right col-span-4 sm:col-span-1 pr-3">SKU<span className="text-destructive">*</span></Label><Input id="sku" value={sku} onChange={(e) => setSku(e.target.value.toUpperCase())} className="col-span-4 sm:col-span-3" placeholder="Contoh: SKU-PRD-001" disabled={!!editingProduct} /></div>
-            <div className="grid grid-cols-4 items-center"><Label htmlFor="productName" className="text-right col-span-4 sm:col-span-1 pr-3">Nama Item<span className="text-destructive">*</span></Label><Input id="productName" value={productName} onChange={(e) => setProductName(e.target.value)} className="col-span-4 sm:col-span-3" placeholder="Nama lengkap produk atau jasa" /></div>
-            <div className="grid grid-cols-4 items-center">
-              <Label htmlFor="category" className="text-right col-span-4 sm:col-span-1 pr-3">Kategori<span className="text-destructive">*</span></Label>
-              <Select value={category || undefined} onValueChange={(value) => setCategory(value as ProductCategory)}>
-                <SelectTrigger className="col-span-4 sm:col-span-3"><SelectValue placeholder="Pilih kategori produk/jasa" /></SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="Suku Cadang">Suku Cadang</SelectItem><SelectItem value="Aksesoris">Aksesoris</SelectItem><SelectItem value="Oli & Cairan">Oli & Cairan</SelectItem><SelectItem value="Jasa">Jasa</SelectItem><SelectItem value="Lainnya">Lainnya</SelectItem>
-                </SelectContent>
-              </Select>
+      {isFormDialogOpen && (
+        <DynamicDialog open={isFormDialogOpen} onOpenChange={(open) => { setIsFormDialogOpen(open); if (!open) resetFormFields(); }}>
+          <DynamicDialogContent className="sm:max-w-lg max-h-[90vh] flex flex-col">
+            <DynamicDialogHeader className="flex-shrink-0">
+              <DynamicDialogTitle>{editingProduct ? 'Edit Item Inventaris' : 'Tambah Item Baru ke Inventaris'}</DynamicDialogTitle>
+              <DynamicDialogDescription>{editingProduct ? `Mengedit detail untuk ${editingProduct.name}.` : 'Masukkan detail item baru.'}</DynamicDialogDescription>
+            </DynamicDialogHeader>
+            <div className="grid gap-y-3 gap-x-4 py-2 flex-grow overflow-y-auto pr-3 text-sm">
+              <div className="grid grid-cols-4 items-center"><Label htmlFor="sku" className="text-right col-span-4 sm:col-span-1 pr-3">SKU<span className="text-destructive">*</span></Label><Input id="sku" value={sku} onChange={(e) => setSku(e.target.value.toUpperCase())} className="col-span-4 sm:col-span-3" placeholder="Contoh: SKU-PRD-001" disabled={!!editingProduct} /></div>
+              <div className="grid grid-cols-4 items-center"><Label htmlFor="productName" className="text-right col-span-4 sm:col-span-1 pr-3">Nama Item<span className="text-destructive">*</span></Label><Input id="productName" value={productName} onChange={(e) => setProductName(e.target.value)} className="col-span-4 sm:col-span-3" placeholder="Nama lengkap produk atau jasa" /></div>
+              <div className="grid grid-cols-4 items-center">
+                <Label htmlFor="category" className="text-right col-span-4 sm:col-span-1 pr-3">Kategori<span className="text-destructive">*</span></Label>
+                <Select value={category || undefined} onValueChange={(value) => setCategory(value as ProductCategory)}>
+                  <SelectTrigger className="col-span-4 sm:col-span-3"><SelectValue placeholder="Pilih kategori produk/jasa" /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="Suku Cadang">Suku Cadang</SelectItem><SelectItem value="Aksesoris">Aksesoris</SelectItem><SelectItem value="Oli & Cairan">Oli & Cairan</SelectItem><SelectItem value="Jasa">Jasa</SelectItem><SelectItem value="Lainnya">Lainnya</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="grid grid-cols-4 items-center"><Label htmlFor="costPrice" className="text-right col-span-4 sm:col-span-1 pr-3">Harga Modal (Rp)<span className="text-destructive">*</span></Label><Input id="costPrice" type="number" value={costPrice} onChange={(e) => setCostPrice(e.target.value)} className="col-span-4 sm:col-span-3" placeholder="Contoh: 50000" /></div>
+              <div className="grid grid-cols-4 items-center"><Label htmlFor="sellingPriceDefault" className="text-right col-span-4 sm:col-span-1 pr-3">Harga Jual Saja (Rp)<span className="text-destructive">*</span></Label><Input id="sellingPriceDefault" type="number" value={sellingPriceDefault} onChange={(e) => setSellingPriceDefault(e.target.value)} className="col-span-4 sm:col-span-3" placeholder="Contoh: 75000" /></div>
+              <div className="grid grid-cols-4 items-center"><Label htmlFor="sellingPricePartner" className="text-right col-span-4 sm:col-span-1 pr-3">Harga Jual Partner (Rp)</Label><Input id="sellingPricePartner" type="number" value={sellingPricePartner} onChange={(e) => setSellingPricePartner(e.target.value)} className="col-span-4 sm:col-span-3" placeholder="Opsional, contoh: 65000" /></div>
+              {category !== 'Jasa' && (<div className="grid grid-cols-4 items-center"><Label htmlFor="sellingPriceServicePackage" className="text-right col-span-4 sm:col-span-1 pr-3">Harga Jual + Pasang (Rp)</Label><Input id="sellingPriceServicePackage" type="number" value={sellingPriceServicePackage} onChange={(e) => setSellingPriceServicePackage(e.target.value)} className="col-span-4 sm:col-span-3" placeholder="Opsional, contoh: 90000" /></div>)}
+              {category !== 'Jasa' && (<>
+                  <div className="grid grid-cols-4 items-center"><Label htmlFor="stockQuantity" className="text-right col-span-4 sm:col-span-1 pr-3">Stok Saat Ini<span className="text-destructive">*</span></Label><Input id="stockQuantity" type="number" value={stockQuantity} onChange={(e) => setStockQuantity(e.target.value)} className="col-span-4 sm:col-span-3" placeholder="Contoh: 100" /></div>
+                  <div className="grid grid-cols-4 items-center"><Label htmlFor="lowStockThreshold" className="text-right col-span-4 sm:col-span-1 pr-3">Batas Stok Rendah<span className="text-destructive">*</span></Label><Input id="lowStockThreshold" type="number" value={lowStockThreshold} onChange={(e) => setLowStockThreshold(e.target.value)} className="col-span-4 sm:col-span-3" placeholder="Contoh: 10" /></div>
+              </>)}
+              <div className="grid grid-cols-4 items-start"><Label htmlFor="description" className="text-right col-span-4 sm:col-span-1 pt-2 pr-3">Deskripsi</Label><Textarea id="description" value={description} onChange={(e) => setDescription(e.target.value)} className="col-span-4 sm:col-span-3" placeholder="Deskripsi singkat item (opsional)" rows={3}/></div>
+              <div className="grid grid-cols-4 items-center">
+                  <Label htmlFor="isActiveSwitch" className="text-right col-span-4 sm:col-span-1 pr-3">Status Item</Label>
+                  <div className="col-span-4 sm:col-span-3 flex items-center space-x-2"><Switch id="isActiveSwitch" checked={isActive} onCheckedChange={setIsActive} /><span className="text-xs text-muted-foreground">{isActive ? "Aktif (dapat dijual)" : "Nonaktif (tidak tampil di penjualan)"}</span></div>
+              </div>
             </div>
-            <div className="grid grid-cols-4 items-center"><Label htmlFor="costPrice" className="text-right col-span-4 sm:col-span-1 pr-3">Harga Modal (Rp)<span className="text-destructive">*</span></Label><Input id="costPrice" type="number" value={costPrice} onChange={(e) => setCostPrice(e.target.value)} className="col-span-4 sm:col-span-3" placeholder="Contoh: 50000" /></div>
-            <div className="grid grid-cols-4 items-center"><Label htmlFor="sellingPriceDefault" className="text-right col-span-4 sm:col-span-1 pr-3">Harga Jual Saja (Rp)<span className="text-destructive">*</span></Label><Input id="sellingPriceDefault" type="number" value={sellingPriceDefault} onChange={(e) => setSellingPriceDefault(e.target.value)} className="col-span-4 sm:col-span-3" placeholder="Contoh: 75000" /></div>
-            <div className="grid grid-cols-4 items-center"><Label htmlFor="sellingPricePartner" className="text-right col-span-4 sm:col-span-1 pr-3">Harga Jual Partner (Rp)</Label><Input id="sellingPricePartner" type="number" value={sellingPricePartner} onChange={(e) => setSellingPricePartner(e.target.value)} className="col-span-4 sm:col-span-3" placeholder="Opsional, contoh: 65000" /></div>
-            {category !== 'Jasa' && (<div className="grid grid-cols-4 items-center"><Label htmlFor="sellingPriceServicePackage" className="text-right col-span-4 sm:col-span-1 pr-3">Harga Jual + Pasang (Rp)</Label><Input id="sellingPriceServicePackage" type="number" value={sellingPriceServicePackage} onChange={(e) => setSellingPriceServicePackage(e.target.value)} className="col-span-4 sm:col-span-3" placeholder="Opsional, contoh: 90000" /></div>)}
-            {category !== 'Jasa' && (<>
-                <div className="grid grid-cols-4 items-center"><Label htmlFor="stockQuantity" className="text-right col-span-4 sm:col-span-1 pr-3">Stok Saat Ini<span className="text-destructive">*</span></Label><Input id="stockQuantity" type="number" value={stockQuantity} onChange={(e) => setStockQuantity(e.target.value)} className="col-span-4 sm:col-span-3" placeholder="Contoh: 100" /></div>
-                <div className="grid grid-cols-4 items-center"><Label htmlFor="lowStockThreshold" className="text-right col-span-4 sm:col-span-1 pr-3">Batas Stok Rendah<span className="text-destructive">*</span></Label><Input id="lowStockThreshold" type="number" value={lowStockThreshold} onChange={(e) => setLowStockThreshold(e.target.value)} className="col-span-4 sm:col-span-3" placeholder="Contoh: 10" /></div>
-            </>)}
-            <div className="grid grid-cols-4 items-start"><Label htmlFor="description" className="text-right col-span-4 sm:col-span-1 pt-2 pr-3">Deskripsi</Label><Textarea id="description" value={description} onChange={(e) => setDescription(e.target.value)} className="col-span-4 sm:col-span-3" placeholder="Deskripsi singkat item (opsional)" rows={3}/></div>
-            <div className="grid grid-cols-4 items-center">
-                <Label htmlFor="isActiveSwitch" className="text-right col-span-4 sm:col-span-1 pr-3">Status Item</Label>
-                <div className="col-span-4 sm:col-span-3 flex items-center space-x-2"><Switch id="isActiveSwitch" checked={isActive} onCheckedChange={setIsActive} /><span className="text-xs text-muted-foreground">{isActive ? "Aktif (dapat dijual)" : "Nonaktif (tidak tampil di penjualan)"}</span></div>
-            </div>
-          </div>
-          <DialogFooter className="flex-shrink-0 pt-4 border-t"><DialogClose asChild><Button type="button" variant="outline">Batal</Button></DialogClose><Button type="button" onClick={handleSaveProduct} className="bg-primary hover:bg-primary/90 text-primary-foreground">Simpan Item</Button></DialogFooter>
-        </DialogContent>
-      </Dialog>
+            <DynamicDialogFooter className="flex-shrink-0 pt-4 border-t">
+              <DynamicDialogClose asChild><Button type="button" variant="outline">Batal</Button></DynamicDialogClose>
+              <Button type="button" onClick={handleSaveProduct} className="bg-primary hover:bg-primary/90 text-primary-foreground">Simpan Item</Button>
+            </DynamicDialogFooter>
+          </DynamicDialogContent>
+        </DynamicDialog>
+      )}
     </div>
   );
 }
-
