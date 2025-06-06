@@ -52,7 +52,6 @@ export default function SupplierOrdersPage() {
 
 
   const fetchInventory = useCallback(async () => {
-    // Removed setIsLoading(true) from here to rely on the main useEffect's isLoading
     const { data, error } = await supabase.from('products').select('*').neq('category', 'Jasa');
     if (error) {
       console.error("Error fetching inventory (raw):", JSON.stringify(error, null, 2));
@@ -78,11 +77,9 @@ export default function SupplierOrdersPage() {
         }));
       setInventoryProducts(transformedData as Product[]);
     }
-    // Removed setIsLoading(false) from here
   }, [toast]);
 
   const fetchSupplierOrders = useCallback(async () => {
-    // Removed setIsLoading(true) from here
     const { data, error } = await supabase.from('supplier_orders').select('*').order('order_date', { ascending: false });
     if (error) {
       console.error("Error fetching supplier orders (raw):", JSON.stringify(error, null, 2));
@@ -112,7 +109,6 @@ export default function SupplierOrdersPage() {
       }));
       setSupplierOrdersList(transformedData as SupplierOrder[]);
     }
-    // Removed setIsLoading(false) from here
   }, [toast]);
 
   const fetchAllSuppliers = useCallback(async () => {
@@ -126,9 +122,9 @@ export default function SupplierOrdersPage() {
   }, [toast]);
 
   useEffect(() => {
-    setIsLoading(true); // Set loading true at the start of combined fetch
+    setIsLoading(true); 
     Promise.all([fetchInventory(), fetchSupplierOrders(), fetchAllSuppliers()]).finally(() => {
-      setIsLoading(false); // Set loading false after all fetches are done
+      setIsLoading(false); 
     });
   }, [fetchInventory, fetchSupplierOrders, fetchAllSuppliers]);
 
@@ -256,7 +252,7 @@ export default function SupplierOrdersPage() {
                         ))}
                         </div>
                     </ScrollArea>
-                    ) : !isLoading ? (
+                    ) : !isLoading && supplierName.trim().length > 0 ? (
                     <div className="p-2 text-sm text-center text-muted-foreground">Supplier tidak ditemukan. <br/> Anda bisa ketik nama baru.</div>
                     ) : null
                 )}
