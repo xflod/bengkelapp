@@ -20,7 +20,7 @@ import { Progress } from "@/components/ui/progress";
 import { supabase } from '@/lib/supabase';
 
 interface ServiceJob {
-  id: number; // Supabase auto-increment ID
+  id: string; 
   customerName: string;
   customerPhone?: string;
   vehiclePlate: string;
@@ -43,7 +43,7 @@ export default function SchedulePage() {
   const [isFormOpen, setIsFormOpen] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
   
-  const [editingJobId, setEditingJobId] = useState<number | null>(null);
+  const [editingJobId, setEditingJobId] = useState<string | null>(null);
 
   const [customerName, setCustomerName] = useState('');
   const [customerPhone, setCustomerPhone] = useState('');
@@ -58,16 +58,16 @@ export default function SchedulePage() {
   const fetchServiceJobs = useCallback(async () => {
     setIsLoading(true);
     const { data, error } = await supabase
-      .from('serviceJobs')
+      .from('service_jobs')
       .select('*')
-      .order('createdAt', { ascending: false });
+      .order('created_at', { ascending: false }); // Fixed: createdAt to created_at
 
     if (error) {
       console.error('Error fetching service jobs:', error);
       toast({ variant: "destructive", title: "Gagal Memuat Jadwal", description: error.message });
       setServiceJobs([]);
     } else {
-      setServiceJobs(data as ServiceJob[]);
+      setServiceJobs(data.map(j => ({...j, id: String(j.id)})) as ServiceJob[]);
     }
     setIsLoading(false);
   }, [toast]);
@@ -102,63 +102,62 @@ export default function SchedulePage() {
     const progressValue = estimatedProgress[0];
 
     const jobData = {
-      customerName: customerName.trim(), customerPhone: customerPhone.trim() || undefined,
-      vehiclePlate: vehiclePlate.trim().toUpperCase(), vehicleType: vehicleType.trim(),
-      serviceRequest: serviceRequest.trim(), workDoneNotes: workDoneNotes.trim() || undefined,
-      status: currentStatus, accessCode: currentAccessCode, estimatedProgress: progressValue,
-      updatedAt: now,
+      customer_name: customerName.trim(), customer_phone: customerPhone.trim() || undefined,
+      vehicle_plate: vehiclePlate.trim().toUpperCase(), vehicle_type: vehicleType.trim(),
+      service_request: serviceRequest.trim(), work_done_notes: workDoneNotes.trim() || undefined,
+      status: currentStatus, access_code: currentAccessCode, estimated_progress: progressValue,
+      updated_at: now,
     };
 
     if (editingJobId) {
-      const { error } = await supabase.from('serviceJobs').update(jobData).match({ id: editingJobId });
+      const { error } = await supabase.from('service_jobs').update(jobData).match({ id: editingJobId });
       if (error) toast({ variant: "destructive", title: "Gagal Update Jadwal", description: error.message });
       else { toast({ title: "Jadwal Diperbarui" }); fetchServiceJobs(); }
     } else {
-      const { error } = await supabase.from('serviceJobs').insert([{ ...jobData, createdAt: now, status: 'Antrian' }]);
+      const { error } = await supabase.from('service_jobs').insert([{ ...jobData, created_at: now, status: 'Antrian' }]);
       if (error) toast({ variant: "destructive", title: "Gagal Buat Jadwal", description: error.message });
       else { toast({ title: "Jadwal Dibuat" }); fetchServiceJobs(); }
     }
     setIsFormOpen(false);
   };
 
-  const handleUpdateStatus = useCallback(async (jobId: number, newStatus: ServiceJob['status']) => {
+  const handleUpdateStatus = useCallback(async (jobId: string, newStatus: ServiceJob['status']) => {
     const now = new Date().toISOString();
     const jobToUpdate = serviceJobs.find(j => j.id === jobId);
     if (!jobToUpdate) return;
 
-    let updateData: Partial<ServiceJob> = { status: newStatus, updatedAt: now };
+    let updateData: Partial<any> = { status: newStatus, updated_at: now };
     let toastMessage = `Status servis ${jobToUpdate.vehiclePlate} menjadi ${newStatus}.`;
 
     if (newStatus === 'Dikerjakan' && !jobToUpdate.actualStartTime) {
-      updateData.actualStartTime = now;
-      updateData.estimatedProgress = Math.max(jobToUpdate.estimatedProgress || 0, 5);
+      updateData.actual_start_time = now;
+      updateData.estimated_progress = Math.max(jobToUpdate.estimatedProgress || 0, 5);
       toastMessage = `Servis untuk ${jobToUpdate.vehiclePlate} mulai dikerjakan.`;
     } else if (newStatus === 'Selesai') {
-      updateData.estimatedProgress = 100; 
+      updateData.estimated_progress = 100; 
       toastMessage = `Servis untuk ${jobToUpdate.vehiclePlate} telah selesai.`;
     }
     
-    const { error } = await supabase.from('serviceJobs').update(updateData).match({ id: jobId });
+    const { error } = await supabase.from('service_jobs').update(updateData).match({ id: jobId });
     if (error) toast({ variant: "destructive", title: "Gagal Update Status", description: error.message });
     else { toast({ title: "Status Diperbarui", description: toastMessage }); fetchServiceJobs(); }
   }, [toast, fetchServiceJobs, serviceJobs]);
   
-  const handleDeleteJob = useCallback(async (jobId: number, plate: string) => {
+  const handleDeleteJob = useCallback(async (jobId: string, plate: string) => {
     if (window.confirm(`Yakin ingin menghapus jadwal servis untuk ${plate}?`)) {
-        const { error } = await supabase.from('serviceJobs').delete().match({ id: jobId });
+        const { error } = await supabase.from('service_jobs').delete().match({ id: jobId });
         if (error) toast({ variant: "destructive", title: "Gagal Hapus Jadwal", description: error.message });
         else { toast({ title: "Jadwal Dihapus" }); fetchServiceJobs(); }
     }
   }, [toast, fetchServiceJobs]);
 
-  // handleCopyAccessCode, handleCopyStatusLink, handleOpenStatusLink, getStatusBadge are UI/client-side, no DB change
   const handleCopyAccessCode = useCallback((code: string) => { navigator.clipboard.writeText(code).then(() => toast({ title: "Kode Akses Disalin" })).catch(() => toast({ variant: "destructive", title: "Gagal Menyalin" })); }, [toast]);
   const handleCopyStatusLink = useCallback((accessCode: string) => { const url = `${window.location.origin}/service-status?code=${accessCode}`; navigator.clipboard.writeText(url).then(() => toast({ title: "Link Status Disalin" })).catch(() => toast({ variant: "destructive", title: "Gagal Menyalin Link" })); }, [toast]);
   const handleOpenStatusLink = useCallback((accessCode: string) => { const url = `${window.location.origin}/service-status?code=${accessCode}`; window.open(url, '_blank'); }, []);
   const getStatusBadge = (status: ServiceJob['status']): React.ReactNode => { let variant: "default" | "secondary" | "destructive" | "outline" = "default"; let icon = null; let colorClass = ""; switch (status) { case 'Antrian': variant = 'secondary'; icon = <Hourglass className="mr-1 h-3 w-3" />; colorClass="bg-slate-500 hover:bg-slate-600"; break; case 'Dikerjakan': variant = 'default'; icon = <PlayCircle className="mr-1 h-3 w-3" />; colorClass="bg-blue-500 hover:bg-blue-600"; break; case 'Menunggu Konfirmasi': variant = 'outline'; icon = <AlertCircle className="mr-1 h-3 w-3" />; colorClass="bg-yellow-500 text-yellow-foreground hover:bg-yellow-600 border-yellow-600"; break; case 'Selesai': variant = 'default'; icon = <CheckCircle2 className="mr-1 h-3 w-3" />; colorClass="bg-green-600 hover:bg-green-700"; break; case 'Dibatalkan': variant = 'destructive'; icon = <XCircle className="mr-1 h-3 w-3" />; colorClass="bg-red-600 hover:bg-red-700"; break; } return <Badge variant={variant} className={`whitespace-nowrap text-xs ${colorClass} text-white`}>{icon}{status}</Badge>; };
   const sortedServiceJobs = React.useMemo(() => [...serviceJobs].sort((a,b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()), [serviceJobs]);
 
-  if (isLoading && serviceJobs.length === 0) { // Only show initial loading
+  if (isLoading && serviceJobs.length === 0) { 
     return <div className="flex justify-center items-center h-screen"><Hourglass className="h-12 w-12 text-primary animate-spin" /> <p className="ml-4">Memuat jadwal servis...</p></div>;
   }
 

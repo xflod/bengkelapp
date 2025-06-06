@@ -12,7 +12,7 @@ import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, D
 import { Progress } from "@/components/ui/progress";
 import { Badge } from "@/components/ui/badge";
 import { useToast } from "@/hooks/use-toast";
-import type { SavingsGoal, SavingsTransaction, SavingsGoalStatus } from "@/lib/types"; // Added SavingsGoalStatus
+import type { SavingsGoal, SavingsTransaction, SavingsGoalStatus } from "@/lib/types"; 
 import { supabase } from '@/lib/supabase';
 import { PlusCircle, Edit3, Trash2, Eye, DollarSign, CalendarIcon as CalendarDateIcon, Hourglass, PiggyBank, Info } from "lucide-react";
 import { Label } from '@/components/ui/label';
@@ -32,15 +32,15 @@ export default function SavingsBookPage() {
   const [goalName, setGoalName] = useState('');
   const [goalTargetAmount, setGoalTargetAmount] = useState<string | number>('');
   const [goalStartDate, setGoalStartDate] = useState<Date | undefined>(startOfDay(new Date()));
-  const [goalTargetDate, setGoalTargetDate] = useState<Date | undefined>(undefined); // New state for target date
-  const [goalNotes, setGoalNotes] = useState(''); // New state for goal notes
+  const [goalTargetDate, setGoalTargetDate] = useState<Date | undefined>(undefined); 
+  const [goalNotes, setGoalNotes] = useState(''); 
 
   const [isTransactionFormOpen, setIsTransactionFormOpen] = useState(false);
   const [selectedGoalForTransaction, setSelectedGoalForTransaction] = useState<SavingsGoal | null>(null);
   const [transactionAmount, setTransactionAmount] = useState<string | number>('');
   const [transactionDate, setTransactionDate] = useState<Date | undefined>(startOfDay(new Date()));
   const [transactionNotes, setTransactionNotes] = useState('');
-  const [transactionType, setTransactionType] = useState<'Setoran' | 'Penarikan'>('Setoran'); // New state for transaction type
+  const [transactionType, setTransactionType] = useState<'Setoran' | 'Penarikan'>('Setoran'); 
 
   const [isHistoryDialogOpen, setIsHistoryDialogOpen] = useState(false);
   const [selectedGoalForHistory, setSelectedGoalForHistory] = useState<SavingsGoal | null>(null);
@@ -48,13 +48,13 @@ export default function SavingsBookPage() {
   const fetchData = useCallback(async () => {
     setIsLoading(true);
     try {
-      const { data: goalsData, error: goalsError } = await supabase.from('savingsGoals').select('*').order('createdAt', { ascending: false });
+      const { data: goalsData, error: goalsError } = await supabase.from('savings_goals').select('*').order('created_at', { ascending: false }); // Fixed: createdAt to created_at
       if (goalsError) throw goalsError;
-      setSavingsGoals(goalsData as SavingsGoal[]);
+      setSavingsGoals(goalsData.map(g => ({...g, id: String(g.id)})) as SavingsGoal[]);
 
-      const { data: trxData, error: trxError } = await supabase.from('savingsTransactions').select('*').order('transactionDate', { ascending: false });
+      const { data: trxData, error: trxError } = await supabase.from('savings_transactions').select('*').order('transaction_date', { ascending: false });
       if (trxError) throw trxError;
-      setSavingsTransactions(trxData as SavingsTransaction[]);
+      setSavingsTransactions(trxData.map(t => ({...t, id: String(t.id), goalId: String(t.goal_id)})) as SavingsTransaction[]);
     } catch (error: any) {
       toast({ variant: "destructive", title: "Gagal Memuat Data Tabungan", description: error.message });
     }
@@ -73,32 +73,29 @@ export default function SavingsBookPage() {
     const now = new Date().toISOString();
 
     const goalDataToSave = {
-      name: goalName.trim(), targetAmount: parsedTargetAmount, startDate: format(goalStartDate, 'yyyy-MM-dd'),
-      targetDate: goalTargetDate ? format(goalTargetDate, 'yyyy-MM-dd') : undefined,
-      notes: goalNotes.trim() || undefined, updatedAt: now,
-      // currentAmount and status will be handled by Supabase logic or triggers if possible, or calculated on read.
-      // For simplicity here, new goals start with 0 currentAmount and 'Aktif' status.
+      name: goalName.trim(), target_amount: parsedTargetAmount, start_date: format(goalStartDate, 'yyyy-MM-dd'),
+      target_date: goalTargetDate ? format(goalTargetDate, 'yyyy-MM-dd') : undefined,
+      notes: goalNotes.trim() || undefined, updated_at: now,
     };
 
     if (editingGoal && editingGoal.id) {
-      const currentAmount = editingGoal.currentAmount; // Keep current amount, status will re-evaluate
+      const currentAmount = editingGoal.currentAmount; 
       const status = currentAmount >= parsedTargetAmount ? 'Tercapai' : 'Aktif';
-      const { error } = await supabase.from('savingsGoals').update({ ...goalDataToSave, status: status as SavingsGoalStatus }).match({ id: editingGoal.id });
+      const { error } = await supabase.from('savings_goals').update({ ...goalDataToSave, status: status as SavingsGoalStatus }).match({ id: editingGoal.id });
       if (error) toast({ variant: "destructive", title: "Gagal Update Target", description: error.message });
       else { toast({ title: "Target Diperbarui" }); fetchData(); }
     } else {
-      const { error } = await supabase.from('savingsGoals').insert([{ ...goalDataToSave, currentAmount: 0, status: 'Aktif' as SavingsGoalStatus, createdAt: now }]);
+      const { error } = await supabase.from('savings_goals').insert([{ ...goalDataToSave, current_amount: 0, status: 'Aktif' as SavingsGoalStatus, created_at: now }]);
       if (error) toast({ variant: "destructive", title: "Gagal Tambah Target", description: error.message });
       else { toast({ title: "Target Ditambahkan" }); fetchData(); }
     }
     setIsGoalFormOpen(false);
   };
   
-  const handleDeleteGoal = useCallback(async (goalId: number) => {
+  const handleDeleteGoal = useCallback(async (goalId: string) => {
     if (window.confirm("Yakin hapus target ini? Semua transaksi terkait juga akan dihapus.")) {
-      // Consider Supabase cascade or RPC
-      await supabase.from('savingsTransactions').delete().match({ goalId });
-      const { error } = await supabase.from('savingsGoals').delete().match({ id: goalId });
+      await supabase.from('savings_transactions').delete().match({ goal_id: goalId });
+      const { error } = await supabase.from('savings_goals').delete().match({ id: goalId });
       if (error) toast({ variant: "destructive", title: "Gagal Hapus Target", description: error.message });
       else { toast({ title: "Target Dihapus" }); fetchData(); }
     }
@@ -117,18 +114,18 @@ export default function SavingsBookPage() {
     const amountToChange = transactionType === 'Setoran' ? parsedAmount : -parsedAmount;
 
     const transactionData = {
-      goalId: selectedGoalForTransaction.id, transactionDate: format(transactionDate, 'yyyy-MM-dd'),
-      amount: parsedAmount, // Always store positive amount
-      type: transactionType, notes: transactionNotes.trim() || undefined, createdAt: now,
+      goal_id: selectedGoalForTransaction.id, transaction_date: format(transactionDate, 'yyyy-MM-dd'),
+      amount: parsedAmount, 
+      type: transactionType, notes: transactionNotes.trim() || undefined, created_at: now,
     };
-    const { error: trxError } = await supabase.from('savingsTransactions').insert([transactionData]);
+    const { error: trxError } = await supabase.from('savings_transactions').insert([transactionData]);
     if (trxError) { toast({ variant: "destructive", title: "Gagal Simpan Transaksi", description: trxError.message }); return; }
 
     const newCurrentAmount = selectedGoalForTransaction.currentAmount + amountToChange;
     const newStatus = newCurrentAmount >= selectedGoalForTransaction.targetAmount ? 'Tercapai' : 'Aktif';
 
-    const { error: goalUpdateError } = await supabase.from('savingsGoals')
-      .update({ currentAmount: newCurrentAmount, status: newStatus as SavingsGoalStatus, updatedAt: now })
+    const { error: goalUpdateError } = await supabase.from('savings_goals')
+      .update({ current_amount: newCurrentAmount, status: newStatus as SavingsGoalStatus, updated_at: now })
       .match({ id: selectedGoalForTransaction.id });
 
     if (goalUpdateError) toast({ variant: "destructive", title: "Gagal Update Saldo Target", description: goalUpdateError.message });
@@ -137,7 +134,6 @@ export default function SavingsBookPage() {
     setIsTransactionFormOpen(false);
   };
 
-  // UI helpers (handleOpenHistoryDialog, calculateAverageDailySavings, calculateEstimatedDaysToGoal, getGoalStatusBadge, sortedGoals) remain the same
   const handleOpenHistoryDialog = (goal: SavingsGoal) => { setSelectedGoalForHistory(goal); setIsHistoryDialogOpen(true); };
   const calculateAverageDailySavings = useCallback((goal: SavingsGoal) => { const goalTransactions = savingsTransactions.filter(t => t.goalId === goal.id && t.type === 'Setoran'); if (goalTransactions.length === 0 || !goal.startDate || !isValid(parseISO(goal.startDate))) return 0; const totalSavedForGoal = goalTransactions.reduce((sum, t) => sum + t.amount, 0); const daysSinceStart = differenceInDays(new Date(), parseISO(goal.startDate)) + 1; return daysSinceStart > 0 ? totalSavedForGoal / daysSinceStart : 0; }, [savingsTransactions]);
   const calculateEstimatedDaysToGoal = useCallback((goal: SavingsGoal) => { if (goal.status === 'Tercapai' || goal.currentAmount >= goal.targetAmount) return "Tercapai!"; const averageDailySaving = calculateAverageDailySavings(goal); if (averageDailySaving <= 0) { const goalTransactions = savingsTransactions.filter(t => t.goalId === goal.id && t.type === 'Setoran'); return goalTransactions.length > 0 ? "N/A (progres tdk positif)" : "Belum ada setoran."; } const remainingAmount = goal.targetAmount - goal.currentAmount; if (remainingAmount <= 0) return "Tercapai!"; const estimatedDays = Math.ceil(remainingAmount / averageDailySaving); if (!isFinite(estimatedDays) || estimatedDays <= 0) return "Data tdk cukup."; const futureDate = addDays(new Date(), estimatedDays); return `~${estimatedDays} hari (Estimasi: ${format(futureDate, "dd MMM yyyy", { locale: localeID })})`; }, [calculateAverageDailySavings, savingsTransactions]);
@@ -145,7 +141,6 @@ export default function SavingsBookPage() {
   const sortedGoals = useMemo(() => [...savingsGoals].sort((a, b) => { if (a.status === 'Aktif' && b.status !== 'Aktif') return -1; if (a.status !== 'Aktif' && b.status === 'Aktif') return 1; return new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime(); }), [savingsGoals]);
 
   if (isLoading && savingsGoals.length === 0) { return <div className="flex justify-center items-center h-64"><Hourglass className="h-12 w-12 text-primary animate-spin" /></div>; }
-  // JSX remains largely the same, but with added fields in forms
   return (
     <div className="space-y-6">
       <PageHeader title="Buku Tabungan & Target" description="Kelola target tabungan Anda dan catat setiap transaksi." actions={ <Button onClick={() => handleOpenGoalForm()} className="bg-primary hover:bg-primary/90 text-primary-foreground"><PlusCircle className="mr-2 h-4 w-4" />Tambah Target</Button>}/>

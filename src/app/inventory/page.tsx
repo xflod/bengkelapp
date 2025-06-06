@@ -48,7 +48,7 @@ export default function InventoryPage() {
     const { data, error } = await supabase
       .from('products')
       .select('*')
-      .order('updatedAt', { ascending: false });
+      .order('updated_at', { ascending: false }); // Fixed: updatedAt to updated_at
 
     if (error) {
       console.error('Error fetching products (raw):', JSON.stringify(error, null, 2));
@@ -65,7 +65,14 @@ export default function InventoryPage() {
     } else {
       const transformedData = data.map(p => ({
         ...p,
-        sellingPrices: typeof p.sellingPrices === 'string' ? JSON.parse(p.sellingPrices) : p.sellingPrices,
+        id: String(p.id), // Ensure id is string for consistency if used as key
+        sellingPrices: typeof p.selling_prices === 'string' ? JSON.parse(p.selling_prices) : p.selling_prices,
+        costPrice: p.cost_price,
+        stockQuantity: p.stock_quantity,
+        lowStockThreshold: p.low_stock_threshold,
+        isActive: p.is_active,
+        createdAt: p.created_at,
+        updatedAt: p.updated_at,
       }));
       setProducts(transformedData as Product[]);
     }
@@ -124,7 +131,7 @@ export default function InventoryPage() {
     const parsedSellingPriceDefault = parseFloat(String(sellingPriceDefault));
     const parsedSellingPricePartner = String(sellingPricePartner).trim() !== '' ? parseFloat(String(sellingPricePartner)) : undefined;
     const parsedSellingPriceServicePackage = category !== 'Jasa' && String(sellingPriceServicePackage).trim() !== '' ? parseFloat(String(sellingPriceServicePackage)) : undefined;
-    let parsedStockQuantity = category === 'Jasa' ? 0 : parseInt(String(stockQuantity), 10); // Jasa typically has no stock or infinite
+    let parsedStockQuantity = category === 'Jasa' ? 0 : parseInt(String(stockQuantity), 10); 
     let parsedLowStockThreshold = category === 'Jasa' ? 0 : parseInt(String(lowStockThreshold), 10);
 
     if (isNaN(parsedCostPrice) || isNaN(parsedSellingPriceDefault) || 
@@ -135,7 +142,7 @@ export default function InventoryPage() {
         return;
     }
     if (category === 'Jasa') {
-        parsedStockQuantity = 9999; // Or some large number to signify 'available'
+        parsedStockQuantity = 9999; 
         parsedLowStockThreshold = 0;
     }
 
@@ -150,7 +157,7 @@ export default function InventoryPage() {
       sellingPricesArray.push({ tierName: 'servicePackage', price: parsedSellingPriceServicePackage });
     }
 
-    const productData = {
+    const productDataToSave = {
       sku: currentSku,
       name: currentProductName,
       category: category as ProductCategory,
@@ -163,28 +170,15 @@ export default function InventoryPage() {
       updated_at: new Date().toISOString(),
     };
     
-    // For Supabase, use snake_case for column names if your table is defined that way
-    const productDataSupabase: any = { ...productData };
-    delete productDataSupabase.costPrice; productDataSupabase.cost_price = productData.costPrice;
-    delete productDataSupabase.sellingPrices; productDataSupabase.selling_prices = productData.sellingPrices;
-    delete productDataSupabase.stockQuantity; productDataSupabase.stock_quantity = productData.stockQuantity;
-    delete productDataSupabase.lowStockThreshold; productDataSupabase.low_stock_threshold = productData.lowStockThreshold;
-    delete productDataSupabase.isActive; productDataSupabase.is_active = productData.isActive;
-    delete productDataSupabase.updatedAt; productDataSupabase.updated_at = productData.updatedAt;
-    if (!editingProduct) {
-      productDataSupabase.created_at = new Date().toISOString();
-    }
-
-
     if (editingProduct && editingProduct.id) {
       const { error } = await supabase
         .from('products')
-        .update(productDataSupabase)
+        .update(productDataToSave)
         .match({ id: editingProduct.id });
       if (error) {
         toast({ variant: "destructive", title: "Gagal Memperbarui Produk", description: error.message });
       } else {
-        toast({ title: "Produk Diperbarui", description: `${productData.name} telah diperbarui.` });
+        toast({ title: "Produk Diperbarui", description: `${productDataToSave.name} telah diperbarui.` });
         fetchProducts(); 
       }
     } else {
@@ -195,11 +189,11 @@ export default function InventoryPage() {
       }
       const { error } = await supabase
         .from('products')
-        .insert([productDataSupabase]);
+        .insert([{ ...productDataToSave, created_at: new Date().toISOString() }]);
       if (error) {
         toast({ variant: "destructive", title: "Gagal Menambah Produk", description: error.message });
       } else {
-        toast({ title: "Produk Ditambahkan", description: `${productData.name} telah ditambahkan.` });
+        toast({ title: "Produk Ditambahkan", description: `${productDataToSave.name} telah ditambahkan.` });
         fetchProducts(); 
       }
     }
@@ -249,7 +243,8 @@ export default function InventoryPage() {
         case 'allActive': tempProducts = tempProducts.filter(p => p.isActive); break;
         case 'all': break;
     }
-    return tempProducts.sort((a, b) => new Date(b.updatedAt || 0).getTime() - new Date(a.updatedAt || 0).getTime());
+    // No need to sort by updatedAt here as fetchProducts already does it
+    return tempProducts;
   }, [products, searchTerm, activeFilter]);
 
   if (isLoading && products.length === 0) {
