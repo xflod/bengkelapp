@@ -191,7 +191,7 @@ export default function SchedulePage() {
         <DynamicDialog open={isFormOpen} onOpenChange={(open) => { setIsFormOpen(open); if (!open) resetFormFields(); }}>
           <DynamicDialogContent className="sm:max-w-lg max-h-[90vh] flex flex-col">
             <DynamicDialogHeader className="flex-shrink-0">
-              <DynamicDialogTitle>{editingJobId ? 'Edit Jadwal Servis' : 'Buat Jadwal Servis Baru'}</DynamicDialogTitle>
+              <DynamicDialogTitle id="schedule-dialog-title">{editingJobId ? 'Edit Jadwal Servis' : 'Buat Jadwal Servis Baru'}</DynamicDialogTitle>
               <DynamicDialogDescription>{editingJobId ? `Mengedit detail untuk ${vehiclePlate}.` : 'Masukkan detail servis pelanggan.'}</DynamicDialogDescription>
             </DynamicDialogHeader>
             <div className="grid gap-4 py-2 flex-grow overflow-y-auto pr-3">
@@ -228,3 +228,4 @@ export default function SchedulePage() {
     </div>
   );
 }
+
