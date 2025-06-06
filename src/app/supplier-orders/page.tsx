@@ -52,7 +52,7 @@ export default function SupplierOrdersPage() {
 
 
   const fetchInventory = useCallback(async () => {
-    setIsLoading(true);
+    // Removed setIsLoading(true) from here to rely on the main useEffect's isLoading
     const { data, error } = await supabase.from('products').select('*').neq('category', 'Jasa');
     if (error) {
       console.error("Error fetching inventory (raw):", JSON.stringify(error, null, 2));
@@ -78,11 +78,11 @@ export default function SupplierOrdersPage() {
         }));
       setInventoryProducts(transformedData as Product[]);
     }
-    setIsLoading(false);
+    // Removed setIsLoading(false) from here
   }, [toast]);
 
   const fetchSupplierOrders = useCallback(async () => {
-    setIsLoading(true);
+    // Removed setIsLoading(true) from here
     const { data, error } = await supabase.from('supplier_orders').select('*').order('order_date', { ascending: false });
     if (error) {
       console.error("Error fetching supplier orders (raw):", JSON.stringify(error, null, 2));
@@ -112,23 +112,26 @@ export default function SupplierOrdersPage() {
       }));
       setSupplierOrdersList(transformedData as SupplierOrder[]);
     }
-    setIsLoading(false);
+    // Removed setIsLoading(false) from here
   }, [toast]);
 
   const fetchAllSuppliers = useCallback(async () => {
     const { data, error } = await supabase.from('suppliers').select('*').order('name', { ascending: true });
     if (error) {
       toast({ variant: "destructive", title: "Gagal Memuat Daftar Supplier", description: error.message });
+      setAllSuppliers([]);
     } else {
       setAllSuppliers(data.map(s => ({ ...s, id: String(s.id) })) as Supplier[]);
     }
   }, [toast]);
 
-  useEffect(() => { 
-    fetchInventory(); 
-    fetchSupplierOrders();
-    fetchAllSuppliers();
+  useEffect(() => {
+    setIsLoading(true); // Set loading true at the start of combined fetch
+    Promise.all([fetchInventory(), fetchSupplierOrders(), fetchAllSuppliers()]).finally(() => {
+      setIsLoading(false); // Set loading false after all fetches are done
+    });
   }, [fetchInventory, fetchSupplierOrders, fetchAllSuppliers]);
+
 
   const handleInputChange = (productId: string, value: string) => { setOrderQuantitiesInput(prev => ({ ...prev, [productId]: value })); };
   const handleAddToOrder = (product: Product) => { const quantityStr = orderQuantitiesInput[product.id] || '0'; const quantity = parseInt(quantityStr, 10); if (isNaN(quantity) || quantity <= 0) { toast({ variant: "destructive", title: "Jumlah Tidak Valid" }); return; } setOrderItems(prevItems => { const existingItemIndex = prevItems.findIndex(item => item.productId === product.id); if (existingItemIndex > -1) { const updatedItems = [...prevItems]; updatedItems[existingItemIndex].orderQuantity += quantity; return updatedItems; } else { return [...prevItems, { productId: product.id, productName: product.name, sku: product.sku, orderQuantity: quantity }]; } }); toast({ title: "Ditambahkan ke Order" }); setOrderQuantitiesInput(prev => ({ ...prev, [product.id]: '' })); };
@@ -152,7 +155,7 @@ export default function SupplierOrdersPage() {
       order_date: now.toISOString(), items: orderItems, status: 'Draf Order' as SupplierOrderStatus,
       total_order_quantity: orderItems.reduce((sum, item) => sum + item.orderQuantity, 0),
       created_at: now.toISOString(), updated_at: now.toISOString(),
-      supplier_name: supplierName.trim() || undefined, // Uses the state `supplierName`
+      supplier_name: supplierName.trim() || undefined, 
       client_order_id: `SO-${format(now, 'yyyyMMddHHmmss')}-${Math.random().toString(36).substring(2, 7).toUpperCase()}`
     };
 
@@ -169,10 +172,9 @@ export default function SupplierOrdersPage() {
       if (cleanNumber.startsWith('0')) {
         cleanNumber = '62' + cleanNumber.substring(1);
       } else if (!cleanNumber.startsWith('62')) {
-        if (cleanNumber.length >= 9 && cleanNumber.length <= 13) { // Basic check for Indonesian local numbers
+        if (cleanNumber.length >= 9 && cleanNumber.length <= 13) { 
             cleanNumber = '62' + cleanNumber;
         }
-        // else, assume it's already an international number or a non-standard one, use as-is without '62' prefix
       }
       whatsappUrl = `https://wa.me/${cleanNumber}?text=${encodeURIComponent(message)}`;
     }
@@ -214,13 +216,13 @@ export default function SupplierOrdersPage() {
                     onChange={(e) => {
                       const newName = e.target.value;
                       setSupplierName(newName);
-                      setSelectedSupplier(null); // Reset if typing manually
-                      setIsSupplierPopoverOpen(newName.trim().length > 0 && filteredSuppliersForPopover.length > 0);
+                      setSelectedSupplier(null); 
+                      setIsSupplierPopoverOpen(newName.trim().length > 0);
                     }}
-                    onClick={() => { // Open if there's text and matching suppliers
-                        if(supplierName.trim().length > 0 && filteredSuppliersForPopover.length > 0) {
-                           setIsSupplierPopoverOpen(true);
-                        }
+                    onFocus={() => {
+                      if (supplierName.trim().length > 0) {
+                        setIsSupplierPopoverOpen(true);
+                      }
                     }}
                     placeholder="Ketik nama supplier atau pilih dari daftar"
                     className="w-full"
@@ -229,33 +231,35 @@ export default function SupplierOrdersPage() {
                 </div>
               </PopoverTrigger>
               <PopoverContent className="w-[--radix-popover-trigger-width] p-0" style={{ zIndex: 100 }}>
-                {filteredSuppliersForPopover.length > 0 && supplierName.trim().length > 0 ? (
-                  <ScrollArea className="h-auto max-h-[200px]">
-                    <div className="p-1 space-y-0.5">
-                    {filteredSuppliersForPopover.map((s) => (
-                      <Button
-                        key={s.id}
-                        variant="ghost"
-                        className="w-full justify-start h-auto py-1.5 px-2 text-sm"
-                        onClick={() => {
-                          setSupplierName(s.name);
-                          setSelectedSupplier(s);
-                          setIsSupplierPopoverOpen(false);
-                        }}
-                      >
-                        {s.name} 
-                        {(s.contact_person || s.whatsapp_number) && 
-                          <span className="ml-auto text-xs text-muted-foreground truncate max-w-[100px]">
-                            {s.contact_person || s.whatsapp_number}
-                          </span>
-                        }
-                      </Button>
-                    ))}
-                    </div>
-                  </ScrollArea>
-                ) : supplierName.trim().length > 0 && !isLoading ? (
-                  <div className="p-2 text-sm text-center text-muted-foreground">Supplier tidak ditemukan. <br/> Anda bisa ketik nama baru.</div>
-                ) : null}
+                {supplierName.trim().length > 0 && (
+                    filteredSuppliersForPopover.length > 0 ? (
+                    <ScrollArea className="h-auto max-h-[200px]">
+                        <div className="p-1 space-y-0.5">
+                        {filteredSuppliersForPopover.map((s) => (
+                        <Button
+                            key={s.id}
+                            variant="ghost"
+                            className="w-full justify-start h-auto py-1.5 px-2 text-sm"
+                            onClick={() => {
+                            setSupplierName(s.name);
+                            setSelectedSupplier(s);
+                            setIsSupplierPopoverOpen(false);
+                            }}
+                        >
+                            {s.name} 
+                            {(s.contact_person || s.whatsapp_number) && 
+                            <span className="ml-auto text-xs text-muted-foreground truncate max-w-[100px]">
+                                {s.contact_person || s.whatsapp_number}
+                            </span>
+                            }
+                        </Button>
+                        ))}
+                        </div>
+                    </ScrollArea>
+                    ) : !isLoading ? (
+                    <div className="p-2 text-sm text-center text-muted-foreground">Supplier tidak ditemukan. <br/> Anda bisa ketik nama baru.</div>
+                    ) : null
+                )}
               </PopoverContent>
             </Popover>
           </div>
