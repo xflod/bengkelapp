@@ -6,7 +6,7 @@ import { PageHeader } from "@/components/shared/PageHeader";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from "@/components/ui/card"; // Ensuring CardFooter is imported
 import { Label } from "@/components/ui/label";
 import { useToast } from "@/hooks/use-toast";
 import type { ShopSettings } from "@/lib/types";
@@ -34,7 +34,7 @@ export default function SettingsPage() {
       .eq('id', settingsId)
       .single();
 
-    if (error && error.code !== 'PGRST116') { // PGRST116: Row not found (not an error if it's the first time)
+    if (error && error.code !== 'PGRST116') { 
       toast({ variant: "destructive", title: "Gagal Memuat Pengaturan", description: error.message });
     } else if (data) {
       setShopName(data.shop_name || '');
@@ -52,7 +52,7 @@ export default function SettingsPage() {
 
   const handleSaveSettings = async () => {
     setIsSaving(true);
-    const settingsData: Omit<ShopSettings, 'updated_at'> = {
+    const settingsData: Omit<ShopSettings, 'updated_at' | 'id'> & { id: number; updated_at?: string } = {
       id: settingsId,
       shop_name: shopName.trim() || undefined,
       shop_whatsapp_number: shopWhatsapp.trim() || undefined,
@@ -60,16 +60,18 @@ export default function SettingsPage() {
       receipt_footer_text: receiptFooter.trim() || undefined,
       shop_slogan: shopSlogan.trim() || undefined,
     };
+    
+    settingsData.updated_at = new Date().toISOString();
 
     const { error } = await supabase
       .from('shop_settings')
-      .upsert({ ...settingsData, updated_at: new Date().toISOString() }, { onConflict: 'id' });
+      .upsert(settingsData, { onConflict: 'id' });
 
     if (error) {
       toast({ variant: "destructive", title: "Gagal Menyimpan Pengaturan", description: error.message });
     } else {
       toast({ title: "Pengaturan Disimpan", description: "Pengaturan bengkel berhasil diperbarui." });
-      fetchSettings(); // Re-fetch to ensure data consistency if needed, or can just update state locally
+      fetchSettings(); 
     }
     setIsSaving(false);
   };
