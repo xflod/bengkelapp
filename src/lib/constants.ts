@@ -15,7 +15,7 @@ import {
   ArchiveRestore,
   BookOpenText,
   PiggyBank,
-  ReceiptText // Added ReceiptText for expenses
+  ReceiptText
 } from 'lucide-react';
 
 export const NAV_ITEMS: NavItem[] = [
@@ -55,6 +55,11 @@ export const NAV_ITEMS: NavItem[] = [
     icon: Package,
   },
   {
+    title: 'Supplier', // New Supplier Menu Item
+    href: '/suppliers',
+    icon: Truck, 
+  },
+  {
     title: 'Order Supplier',
     href: '/supplier-orders',
     icon: ShoppingBag,
@@ -75,7 +80,7 @@ export const NAV_ITEMS: NavItem[] = [
     icon: BookOpenText,
   },
   {
-    title: 'Pengeluaran', // New Menu Item for Expenses
+    title: 'Pengeluaran',
     href: '/finance/expenses',
     icon: ReceiptText,
   },
@@ -90,3 +95,4 @@ export const NAV_ITEMS: NavItem[] = [
     icon: BarChartBig,
   },
 ];
+
