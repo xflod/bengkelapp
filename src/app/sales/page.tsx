@@ -68,6 +68,9 @@ export default function SalesPage() {
   const [isReceiptModalOpen, setIsReceiptModalOpen] = React.useState(false);
   const [shopSettings, setShopSettings] = React.useState<ShopSettings | null>(null);
 
+  const paymentDialogTitleId = React.useId();
+  const receiptDialogTitleId = React.useId();
+
   React.useEffect(() => {
     const fetchInitialData = async () => {
       // Fetch Products
@@ -152,7 +155,7 @@ export default function SalesPage() {
     return () => { if (stream) stream.getTracks().forEach(track => track.stop()); };
   }, [isCameraOpen, toast, stream]);
 
-  const handleAddToCart = (product: Product) => {
+  const handleAddToCart = React.useCallback((product: Product) => {
     const defaultPriceInfo = product.sellingPrices.find(p => p.tierName === 'default');
     if (!defaultPriceInfo) {
       toast({ variant: "destructive", title: "Harga Tidak Tersedia", description: `Produk ${product.name} tidak memiliki harga jual default.` });
@@ -178,7 +181,7 @@ export default function SalesPage() {
       }
     });
     toast({ title: "Ditambahkan ke Keranjang", description: `${product.name} telah ditambahkan.` });
-  };
+  }, [toast, setCart]);
   
   const handleUpdateQuantity = (productId: string, newQuantity: number) => {
     const productInCart = inventoryProducts.find(p => p.id === productId);
@@ -198,7 +201,18 @@ export default function SalesPage() {
   const parsedDiscount = React.useMemo(() => { const discount = parseFloat(discountAmount); return isNaN(discount) || discount < 0 ? 0 : discount; }, [discountAmount]);
   const calculateFinalTotal = React.useCallback(() => { const subtotal = calculateSubtotal(); const actualDiscount = Math.min(parsedDiscount, subtotal); return Math.max(0, subtotal - actualDiscount); }, [calculateSubtotal, parsedDiscount]);
   const openPaymentDialog = () => { if (cart.length === 0) { toast({ variant: "destructive", title: "Keranjang Kosong" }); return; } setCashReceived(""); setChangeCalculated(0); setPaymentMethodTab('cash'); setIsPaymentDialogOpen(true); };
-  const handleBarcodeScanned = (barcode: string) => { const product = inventoryProducts.find(p => p.sku.toLowerCase() === barcode.toLowerCase()); if (product) { handleAddToCart(product); setSearchTerm(""); setIsCameraOpen(false); } else { toast({ variant: "destructive", title: "Produk Tidak Ditemukan" }); } };
+  
+  const handleBarcodeScanned = React.useCallback((barcode: string) => { 
+    const product = inventoryProducts.find(p => p.sku.toLowerCase() === barcode.toLowerCase()); 
+    if (product) { 
+      handleAddToCart(product); 
+      setSearchTerm(""); 
+      setIsCameraOpen(false); 
+    } else { 
+      toast({ variant: "destructive", title: "Produk Tidak Ditemukan" }); 
+    } 
+  }, [inventoryProducts, handleAddToCart, toast, setSearchTerm, setIsCameraOpen]);
+
   React.useEffect(() => { if (isCameraOpen && searchTerm.toUpperCase().startsWith("BARCODE")) { handleBarcodeScanned(searchTerm.toUpperCase()); } }, [searchTerm, isCameraOpen, handleBarcodeScanned]);
   React.useEffect(() => { const finalTotal = calculateFinalTotal(); const received = parseFloat(cashReceived) || 0; if (paymentMethodTab === 'cash' && received >= finalTotal) { setChangeCalculated(received - finalTotal); } else if (paymentMethodTab === 'cash') { setChangeCalculated(0); } }, [cashReceived, paymentMethodTab, calculateFinalTotal]);
   const handlePresetCash = (amount: number) => { setCashReceived(String(amount)); };
@@ -339,8 +353,8 @@ export default function SalesPage() {
       </div>
       {isPaymentDialogOpen && (
         <DynamicDialog open={isPaymentDialogOpen} onOpenChange={setIsPaymentDialogOpen}>
-          <DynamicDialogContent className="sm:max-w-md">
-            <DynamicDialogHeader><DynamicDialogTitle>Proses Pembayaran</DynamicDialogTitle><DynamicDialogDescription>Subtotal: <span className="font-semibold whitespace-nowrap">Rp {subtotalForCart.toLocaleString()}</span>{parsedDiscount > 0 && (<><br/>Diskon: <span className="font-semibold whitespace-nowrap text-green-600">- Rp {actualDiscountApplied.toLocaleString()}</span></>)}<br/>Total Belanja: <span className="font-bold whitespace-nowrap text-lg">Rp {finalTotalForPayment.toLocaleString()}</span></DynamicDialogDescription></DynamicDialogHeader>
+          <DynamicDialogContent className="sm:max-w-md" aria-labelledby={paymentDialogTitleId}>
+            <DynamicDialogHeader><DynamicDialogTitle id={paymentDialogTitleId}>Proses Pembayaran</DynamicDialogTitle><DynamicDialogDescription>Subtotal: <span className="font-semibold whitespace-nowrap">Rp {subtotalForCart.toLocaleString()}</span>{parsedDiscount > 0 && (<><br/>Diskon: <span className="font-semibold whitespace-nowrap text-green-600">- Rp {actualDiscountApplied.toLocaleString()}</span></>)}<br/>Total Belanja: <span className="font-bold whitespace-nowrap text-lg">Rp {finalTotalForPayment.toLocaleString()}</span></DynamicDialogDescription></DynamicDialogHeader>
             <div className="space-y-2 pt-2"><Label htmlFor="discountAmount">Diskon (Rp)</Label><div className="relative"><Percent className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" /><Input id="discountAmount" type="number" value={discountAmount} onChange={(e) => { const v = e.target.value; const nV = parseFloat(v); if (v === "" || (nV >= 0 && nV <= subtotalForCart) ) { setDiscountAmount(v); } else if (nV > subtotalForCart) { setDiscountAmount(subtotalForCart.toString()); toast({title: "Info", description: "Diskon maks. subtotal."}); } }} placeholder="e.g. 5000" className="pl-10 text-base w-full"/></div></div>
             <Tabs value={paymentMethodTab} onValueChange={(value) => setPaymentMethodTab(value as 'cash' | 'transfer')} className="w-full pt-2">
               <TabsList className="grid w-full grid-cols-2"><TabsTrigger value="cash"><HandCoins className="mr-2 h-4 w-4" />Tunai</TabsTrigger><TabsTrigger value="transfer"><Landmark className="mr-2 h-4 w-4" />Transfer</TabsTrigger></TabsList>
@@ -353,8 +367,8 @@ export default function SalesPage() {
       )}
       {isReceiptModalOpen && receiptDetails && (
         <DynamicDialog open={isReceiptModalOpen} onOpenChange={setIsReceiptModalOpen}>
-          <DynamicDialogContent className="sm:max-w-sm w-[90vw]">
-            <DynamicDialogHeader><DynamicDialogTitle>{receiptDetails?.receiptTitle || "Nota Transaksi"}</DynamicDialogTitle><DynamicDialogDescription>ID: {receiptDetails?.transactionId}</DynamicDialogDescription></DynamicDialogHeader>
+          <DynamicDialogContent className="sm:max-w-sm w-[90vw]" aria-labelledby={receiptDialogTitleId}>
+            <DynamicDialogHeader><DynamicDialogTitle id={receiptDialogTitleId}>{receiptDetails?.receiptTitle || "Nota Transaksi"}</DynamicDialogTitle><DynamicDialogDescription>ID: {receiptDetails?.transactionId}</DynamicDialogDescription></DynamicDialogHeader>
             <div ref={receiptRef} id="receipt-content" className="p-4 border rounded-md bg-white text-black text-xs">
               <div className="text-center mb-2">
                 <h3 className="font-bold text-base">{receiptDetails?.shopName || 'Bengkel Anda'}</h3>
@@ -388,4 +402,3 @@ export default function SalesPage() {
     </div>
   );
 }
-

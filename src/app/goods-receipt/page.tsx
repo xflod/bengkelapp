@@ -1,7 +1,7 @@
 
 "use client";
 
-import React, { useState, useEffect, useCallback, useMemo } from 'react';
+import React, { useState, useEffect, useCallback, useMemo, useId } from 'react';
 import dynamic from 'next/dynamic';
 import { PageHeader } from "@/components/shared/PageHeader";
 import { Button } from "@/components/ui/button";
@@ -41,6 +41,8 @@ export default function GoodsReceiptPage() {
 
   const [filterOrderId, setFilterOrderId] = useState('');
   const [filterSupplierName, setFilterSupplierName] = useState('');
+
+  const goodsReceiptDialogTitleId = useId();
 
   const fetchInitialData = useCallback(async () => {
     setIsLoading(true);
@@ -219,9 +221,9 @@ export default function GoodsReceiptPage() {
       )}
       {selectedOrder && (
         <DynamicDialog open={!!selectedOrder} onOpenChange={(open) => { if (!open) setSelectedOrder(null); }}>
-          <DynamicDialogContent className="sm:max-w-2xl max-h-[90vh] flex flex-col">
+          <DynamicDialogContent className="sm:max-w-2xl max-h-[90vh] flex flex-col" aria-labelledby={goodsReceiptDialogTitleId}>
             <DynamicDialogHeader>
-              <DynamicDialogTitle>Proses Penerimaan Order: {selectedOrder.id}</DynamicDialogTitle>
+              <DynamicDialogTitle id={goodsReceiptDialogTitleId}>Proses Penerimaan Order: {selectedOrder.id}</DynamicDialogTitle>
               <DynamicDialogDescription>Supplier: {selectedOrder.supplierName || "N/A"} | Status: <Badge variant="default" className={`${getStatusBadgeColor(selectedOrder.status)} text-white`}>{selectedOrder.status}</Badge></DynamicDialogDescription>
             </DynamicDialogHeader>
             <div className="flex-grow overflow-y-auto pr-2 space-y-4 py-2">

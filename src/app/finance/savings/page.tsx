@@ -1,7 +1,7 @@
 
 "use client";
 
-import React, { useState, useEffect, useCallback, useMemo } from 'react';
+import React, { useState, useEffect, useCallback, useMemo, useId } from 'react';
 import dynamic from 'next/dynamic';
 import { PageHeader } from "@/components/shared/PageHeader";
 import { Button } from "@/components/ui/button";
@@ -53,6 +53,10 @@ export default function SavingsBookPage() {
 
   const [isHistoryDialogOpen, setIsHistoryDialogOpen] = useState(false);
   const [selectedGoalForHistory, setSelectedGoalForHistory] = useState<SavingsGoal | null>(null);
+
+  const goalFormDialogTitleId = useId();
+  const transactionFormDialogTitleId = useId();
+  const historyDialogTitleId = useId();
 
   const fetchData = useCallback(async () => {
     setIsLoading(true);
@@ -161,8 +165,8 @@ export default function SavingsBookPage() {
       )}
       {isGoalFormOpen && (
         <DynamicDialog open={isGoalFormOpen} onOpenChange={(open) => { setIsGoalFormOpen(open); if (!open) resetGoalForm(); }}>
-          <DynamicDialogContent className="sm:max-w-md">
-            <DynamicDialogHeader><DynamicDialogTitle>{editingGoal ? 'Edit Target' : 'Tambah Target Baru'}</DynamicDialogTitle></DynamicDialogHeader>
+          <DynamicDialogContent className="sm:max-w-md" aria-labelledby={goalFormDialogTitleId}>
+            <DynamicDialogHeader><DynamicDialogTitle id={goalFormDialogTitleId}>{editingGoal ? 'Edit Target' : 'Tambah Target Baru'}</DynamicDialogTitle></DynamicDialogHeader>
             <div className="grid gap-4 py-4">
               <div className="grid grid-cols-4 items-center gap-4"><Label htmlFor="goalNameForm" className="text-right col-span-1">Nama<span className="text-destructive">*</span></Label><Input id="goalNameForm" value={goalName} onChange={e => setGoalName(e.target.value)} className="col-span-3"/></div>
               <div className="grid grid-cols-4 items-center gap-4"><Label htmlFor="goalTargetAmountForm" className="text-right col-span-1">Target (Rp)<span className="text-destructive">*</span></Label><Input id="goalTargetAmountForm" type="number" value={goalTargetAmount} onChange={e => setGoalTargetAmount(e.target.value)} className="col-span-3"/></div>
@@ -176,8 +180,8 @@ export default function SavingsBookPage() {
       )}
       {isTransactionFormOpen && selectedGoalForTransaction && (
         <DynamicDialog open={isTransactionFormOpen} onOpenChange={(open) => { setIsTransactionFormOpen(open); if (!open) setSelectedGoalForTransaction(null); }}>
-          <DynamicDialogContent className="sm:max-w-md">
-            <DynamicDialogHeader><DynamicDialogTitle>Transaksi: {selectedGoalForTransaction.name}</DynamicDialogTitle><DynamicDialogDescription>Target: Rp {selectedGoalForTransaction.target_amount.toLocaleString()} | Terkumpul: Rp {selectedGoalForTransaction.current_amount.toLocaleString()}</DynamicDialogDescription></DynamicDialogHeader>
+          <DynamicDialogContent className="sm:max-w-md" aria-labelledby={transactionFormDialogTitleId}>
+            <DynamicDialogHeader><DynamicDialogTitle id={transactionFormDialogTitleId}>Transaksi: {selectedGoalForTransaction.name}</DynamicDialogTitle><DynamicDialogDescription>Target: Rp {selectedGoalForTransaction.target_amount.toLocaleString()} | Terkumpul: Rp {selectedGoalForTransaction.current_amount.toLocaleString()}</DynamicDialogDescription></DynamicDialogHeader>
             <div className="grid gap-4 py-4">
               <div className="grid grid-cols-4 items-center gap-4"><Label htmlFor="transactionTypeForm" className="text-right col-span-1">Jenis<span className="text-destructive">*</span></Label><Select value={transactionType} onValueChange={(v) => setTransactionType(v as 'Setoran' | 'Penarikan')}><SelectTrigger className="col-span-3"><SelectValue /></SelectTrigger><SelectContent><SelectItem value="Setoran">Setoran</SelectItem><SelectItem value="Penarikan">Penarikan</SelectItem></SelectContent></Select></div>
               <div className="grid grid-cols-4 items-center gap-4"><Label htmlFor="transactionAmountForm" className="text-right col-span-1">Jumlah (Rp)<span className="text-destructive">*</span></Label><Input id="transactionAmountForm" type="number" value={transactionAmount} onChange={e => setTransactionAmount(e.target.value)} className="col-span-3"/></div>
@@ -190,8 +194,8 @@ export default function SavingsBookPage() {
       )}
       {isHistoryDialogOpen && selectedGoalForHistory && (
         <DynamicDialog open={isHistoryDialogOpen} onOpenChange={(open) => { setIsHistoryDialogOpen(open); if (!open) setSelectedGoalForHistory(null); }}>
-          <DynamicDialogContent className="sm:max-w-lg max-h-[80vh] flex flex-col">
-            <DynamicDialogHeader><DynamicDialogTitle>Riwayat: {selectedGoalForHistory.name}</DynamicDialogTitle></DynamicDialogHeader>
+          <DynamicDialogContent className="sm:max-w-lg max-h-[80vh] flex flex-col" aria-labelledby={historyDialogTitleId}>
+            <DynamicDialogHeader><DynamicDialogTitle id={historyDialogTitleId}>Riwayat: {selectedGoalForHistory.name}</DynamicDialogTitle></DynamicDialogHeader>
             <div className="flex-grow overflow-y-auto pr-2">{savingsTransactions.filter(t => t.goal_id === selectedGoalForHistory.id).length > 0 ? (<Table><TableHeader><TableRow><TableHead>Tanggal</TableHead><TableHead>Jenis</TableHead><TableHead className="text-right">Jumlah</TableHead><TableHead>Catatan</TableHead></TableRow></TableHeader><TableBody>{savingsTransactions.filter(t => t.goal_id === selectedGoalForHistory.id).sort((a, b) => new Date(b.transaction_date).getTime() - new Date(a.transaction_date).getTime()).map(trx => (<TableRow key={trx.id}><TableCell>{format(parseISO(trx.transaction_date), "dd MMM yyyy", { locale: localeID })}</TableCell><TableCell><Badge variant={trx.type === 'Penarikan' ? 'destructive' : 'default'}>{trx.type}</Badge></TableCell><TableCell className="text-right">Rp {trx.amount.toLocaleString()}</TableCell><TableCell className="text-xs">{trx.notes || '-'}</TableCell></TableRow>))}</TableBody></Table>) : (<p className="text-muted-foreground text-center py-4">Belum ada riwayat.</p>)}</div>
             <DynamicDialogFooter className="mt-4 pt-4 border-t"><DynamicDialogClose asChild><Button variant="outline">Tutup</Button></DynamicDialogClose></DynamicDialogFooter>
           </DynamicDialogContent>

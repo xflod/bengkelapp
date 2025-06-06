@@ -1,7 +1,7 @@
 
 "use client";
 
-import React, { useState, useEffect, useCallback, useMemo } from 'react';
+import React, { useState, useEffect, useCallback, useMemo, useId } from 'react';
 import dynamic from 'next/dynamic';
 import { PageHeader } from "@/components/shared/PageHeader";
 import { Button } from "@/components/ui/button";
@@ -37,6 +37,7 @@ export default function SuppliersPage() {
   const [notes, setNotes] = useState('');
 
   const [searchTerm, setSearchTerm] = useState('');
+  const supplierFormDialogTitleId = useId();
 
   const fetchSuppliers = useCallback(async () => {
     setIsLoading(true);
@@ -236,9 +237,9 @@ export default function SuppliersPage() {
 
       {isFormOpen && (
         <DynamicDialog open={isFormOpen} onOpenChange={(open) => { setIsFormOpen(open); if (!open) resetFormFields(); }}>
-          <DynamicDialogContent className="sm:max-w-lg max-h-[90vh] flex flex-col">
+          <DynamicDialogContent className="sm:max-w-lg max-h-[90vh] flex flex-col" aria-labelledby={supplierFormDialogTitleId}>
             <DynamicDialogHeader className="flex-shrink-0">
-              <DynamicDialogTitle>{editingSupplier ? 'Edit Data Supplier' : 'Tambah Supplier Baru'}</DynamicDialogTitle>
+              <DynamicDialogTitle id={supplierFormDialogTitleId}>{editingSupplier ? 'Edit Data Supplier' : 'Tambah Supplier Baru'}</DynamicDialogTitle>
               <DynamicDialogDescription>
                 {editingSupplier ? `Mengedit detail untuk ${editingSupplier.name}.` : 'Masukkan informasi detail untuk supplier baru.'}
               </DynamicDialogDescription>

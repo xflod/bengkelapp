@@ -1,7 +1,7 @@
 
 "use client";
 
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useId } from 'react';
 import dynamic from 'next/dynamic';
 import { PageHeader } from "@/components/shared/PageHeader";
 import { Button } from "@/components/ui/button";
@@ -63,6 +63,8 @@ export default function SchedulePage() {
   const [currentStatus, setCurrentStatus] = useState<ServiceJob['status']>('Antrian');
   const [currentAccessCode, setCurrentAccessCode] = useState('');
   const [estimatedProgress, setEstimatedProgress] = useState<number[]>([0]);
+
+  const scheduleDialogTitleId = useId();
 
   const fetchServiceJobs = useCallback(async () => {
     setIsLoading(true);
@@ -189,9 +191,9 @@ export default function SchedulePage() {
       )}
       {isFormOpen && (
         <DynamicDialog open={isFormOpen} onOpenChange={(open) => { setIsFormOpen(open); if (!open) resetFormFields(); }}>
-          <DynamicDialogContent className="sm:max-w-lg max-h-[90vh] flex flex-col">
+          <DynamicDialogContent className="sm:max-w-lg max-h-[90vh] flex flex-col" aria-labelledby={scheduleDialogTitleId}>
             <DynamicDialogHeader className="flex-shrink-0">
-              <DynamicDialogTitle id="schedule-dialog-title">{editingJobId ? 'Edit Jadwal Servis' : 'Buat Jadwal Servis Baru'}</DynamicDialogTitle>
+              <DynamicDialogTitle id={scheduleDialogTitleId}>{editingJobId ? 'Edit Jadwal Servis' : 'Buat Jadwal Servis Baru'}</DynamicDialogTitle>
               <DynamicDialogDescription>{editingJobId ? `Mengedit detail untuk ${vehiclePlate}.` : 'Masukkan detail servis pelanggan.'}</DynamicDialogDescription>
             </DynamicDialogHeader>
             <div className="grid gap-4 py-2 flex-grow overflow-y-auto pr-3">
@@ -228,4 +230,3 @@ export default function SchedulePage() {
     </div>
   );
 }
-

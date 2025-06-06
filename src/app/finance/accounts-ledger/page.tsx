@@ -1,7 +1,7 @@
 
 "use client";
 
-import React, { useState, useEffect, useCallback, useMemo } from 'react';
+import React, { useState, useEffect, useCallback, useMemo, useId } from 'react';
 import dynamic from 'next/dynamic';
 import { PageHeader } from "@/components/shared/PageHeader";
 import { Button } from "@/components/ui/button";
@@ -57,6 +57,9 @@ export default function AccountsLedgerPage() {
   const [amountPaid, setAmountPaid] = useState<string | number>('');
   const [paymentNotes, setPaymentNotes] = useState('');
   const [paymentMethod, setPaymentMethod] = useState('');
+
+  const entryFormDialogTitleId = useId();
+  const paymentDialogTitleId = useId();
 
   const fetchData = useCallback(async () => {
     setIsLoading(true);
@@ -170,9 +173,9 @@ export default function AccountsLedgerPage() {
       </Card>
       {isFormEntryDialogOpen && (
         <DynamicDialog open={isFormEntryDialogOpen} onOpenChange={(open) => { setIsFormEntryDialogOpen(open); if (!open) resetEntryFormFields(); }}>
-          <DynamicDialogContent className="sm:max-w-lg max-h-[90vh] flex flex-col">
+          <DynamicDialogContent className="sm:max-w-lg max-h-[90vh] flex flex-col" aria-labelledby={entryFormDialogTitleId}>
             <DynamicDialogHeader className="flex-shrink-0">
-              <DynamicDialogTitle>{editingEntry ? 'Edit Catatan' : 'Tambah Catatan Baru'}</DynamicDialogTitle>
+              <DynamicDialogTitle id={entryFormDialogTitleId}>{editingEntry ? 'Edit Catatan' : 'Tambah Catatan Baru'}</DynamicDialogTitle>
             </DynamicDialogHeader>
             <div className="grid gap-y-3 gap-x-4 py-2 flex-grow overflow-y-auto pr-3 text-sm">
               <div className="grid grid-cols-4 items-center"><Label htmlFor="entityType" className="text-right col-span-1 pr-3">Tipe<span className="text-destructive">*</span></Label><Select value={entityType} onValueChange={(v) => setEntityType(v as AccountEntryType)}><SelectTrigger className="col-span-3"><SelectValue placeholder="Pilih tipe"/></SelectTrigger><SelectContent><SelectItem value="Pelanggan">Pelanggan</SelectItem><SelectItem value="Partner Bengkel">Partner Bengkel</SelectItem><SelectItem value="Supplier">Supplier</SelectItem><SelectItem value="Operasional & Lainnya">Operasional & Lainnya</SelectItem></SelectContent></Select></div>
@@ -193,9 +196,9 @@ export default function AccountsLedgerPage() {
       )}
       {selectedEntryForPayment && (
         <DynamicDialog open={isPaymentDialogOpen} onOpenChange={(open) => { setIsPaymentDialogOpen(open); if(!open) setSelectedEntryForPayment(null); }}>
-          <DynamicDialogContent className="sm:max-w-2xl max-h-[90vh] flex flex-col">
+          <DynamicDialogContent className="sm:max-w-2xl max-h-[90vh] flex flex-col" aria-labelledby={paymentDialogTitleId}>
             <DynamicDialogHeader>
-              <DynamicDialogTitle>Kelola Pembayaran: {selectedEntryForPayment.entityName}</DynamicDialogTitle>
+              <DynamicDialogTitle id={paymentDialogTitleId}>Kelola Pembayaran: {selectedEntryForPayment.entityName}</DynamicDialogTitle>
               <DynamicDialogDescription>Transaksi: {selectedEntryForPayment.description} <br/>Jml Awal: Rp {selectedEntryForPayment.initialAmount.toLocaleString()} | Sisa: Rp <span className="font-bold text-destructive">{selectedEntryForPayment.remainingAmount.toLocaleString()}</span> | Status: <Badge className={`${getStatusBadgeColor(selectedEntryForPayment.status)} text-white`}>{selectedEntryForPayment.status}</Badge></DynamicDialogDescription>
             </DynamicDialogHeader>
             <div className="flex-grow grid md:grid-cols-2 gap-6 overflow-y-auto p-1">

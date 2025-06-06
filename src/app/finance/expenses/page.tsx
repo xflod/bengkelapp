@@ -1,7 +1,7 @@
 
 "use client";
 
-import React, { useState, useEffect, useCallback, useMemo } from 'react';
+import React, { useState, useEffect, useCallback, useMemo, useId } from 'react';
 import dynamic from 'next/dynamic';
 import { PageHeader } from "@/components/shared/PageHeader";
 import { Button } from "@/components/ui/button";
@@ -45,6 +45,8 @@ export default function ExpensesPage() {
 
   const [searchTerm, setSearchTerm] = useState('');
   const [filterCategory, setFilterCategory] = useState<'all' | ExpenseCategory>('all');
+
+  const expenseFormDialogTitleId = useId();
 
   const fetchExpenses = useCallback(async () => {
     setIsLoading(true);
@@ -113,9 +115,9 @@ export default function ExpensesPage() {
       </Card>
       {isFormOpen && (
         <DynamicDialog open={isFormOpen} onOpenChange={(open) => { setIsFormOpen(open); if (!open) resetFormFields(); }}>
-          <DynamicDialogContent className="sm:max-w-lg max-h-[90vh] flex flex-col">
+          <DynamicDialogContent className="sm:max-w-lg max-h-[90vh] flex flex-col" aria-labelledby={expenseFormDialogTitleId}>
             <DynamicDialogHeader className="flex-shrink-0">
-              <DynamicDialogTitle>{editingExpense ? 'Edit Pengeluaran' : 'Tambah Pengeluaran'}</DynamicDialogTitle>
+              <DynamicDialogTitle id={expenseFormDialogTitleId}>{editingExpense ? 'Edit Pengeluaran' : 'Tambah Pengeluaran'}</DynamicDialogTitle>
             </DynamicDialogHeader>
             <div className="grid gap-y-3 gap-x-4 py-2 flex-grow overflow-y-auto pr-3 text-sm">
               <div className="grid grid-cols-4 items-center"><Label htmlFor="expenseDate" className="text-right col-span-4 sm:col-span-1 pr-3">Tgl.<span className="text-destructive">*</span></Label><Popover><PopoverTrigger asChild><Button variant={"outline"} className={`col-span-4 sm:col-span-3 justify-start text-left font-normal ${!expenseDate && "text-muted-foreground"}`}><CalendarIcon className="mr-2 h-4 w-4" />{expenseDate ? format(expenseDate, "PPP", { locale: localeID }) : <span>Pilih</span>}</Button></PopoverTrigger><PopoverContent className="w-auto p-0"><Calendar mode="single" selected={expenseDate} onSelect={setExpenseDate} initialFocus /></PopoverContent></Popover></div>

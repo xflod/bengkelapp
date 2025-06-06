@@ -1,7 +1,7 @@
 
 "use client";
 
-import React, { useState, useEffect, useCallback, useMemo } from 'react';
+import React, { useState, useEffect, useCallback, useMemo, useId } from 'react';
 import dynamic from 'next/dynamic';
 import { PageHeader } from "@/components/shared/PageHeader";
 import { Button } from "@/components/ui/button";
@@ -72,6 +72,11 @@ export default function EmployeesPage() {
   const [installmentDate, setInstallmentDate] = useState<Date | undefined>(new Date());
   const [installmentAmount, setInstallmentAmount] = useState<string | number>('');
   const [installmentNotes, setInstallmentNotes] = useState('');
+
+  const employeeFormDialogTitleId = useId();
+  const loanMgmtDialogTitleId = useId();
+  const loanFormDialogTitleId = useId();
+  const installmentDialogTitleId = useId();
 
   const fetchData = useCallback(async () => {
     setIsLoading(true);
@@ -248,9 +253,9 @@ export default function EmployeesPage() {
       
       {isFormDialogOpen && (
         <DynamicDialog open={isFormDialogOpen} onOpenChange={(open) => { setIsFormDialogOpen(open); if (!open) resetEmployeeFormFields(); }}>
-          <DynamicDialogContent className="sm:max-w-lg max-h-[90vh] flex flex-col">
+          <DynamicDialogContent className="sm:max-w-lg max-h-[90vh] flex flex-col" aria-labelledby={employeeFormDialogTitleId}>
             <DynamicDialogHeader className="flex-shrink-0">
-              <DynamicDialogTitle>{editingEmployee ? 'Edit Karyawan' : 'Tambah Karyawan'}</DynamicDialogTitle>
+              <DynamicDialogTitle id={employeeFormDialogTitleId}>{editingEmployee ? 'Edit Karyawan' : 'Tambah Karyawan'}</DynamicDialogTitle>
               <DynamicDialogDescription>{editingEmployee ? `Mengedit ${editingEmployee.name}.` : 'Detail karyawan baru.'}</DynamicDialogDescription>
             </DynamicDialogHeader>
             <div className="grid gap-y-3 gap-x-4 py-2 flex-grow overflow-y-auto pr-3 text-sm">
@@ -275,8 +280,8 @@ export default function EmployeesPage() {
 
       {isLoanMgmtDialogOpen && selectedEmployeeForLoan && (
         <DynamicDialog open={isLoanMgmtDialogOpen} onOpenChange={setIsLoanMgmtDialogOpen}>
-          <DynamicDialogContent className="sm:max-w-2xl max-h-[90vh] flex flex-col">
-            <DynamicDialogHeader><DynamicDialogTitle>Man. Pinjaman: {selectedEmployeeForLoan?.name}</DynamicDialogTitle><DynamicDialogDescription>Kelola pinjaman & cicilan.</DynamicDialogDescription></DynamicDialogHeader>
+          <DynamicDialogContent className="sm:max-w-2xl max-h-[90vh] flex flex-col" aria-labelledby={loanMgmtDialogTitleId}>
+            <DynamicDialogHeader><DynamicDialogTitle id={loanMgmtDialogTitleId}>Man. Pinjaman: {selectedEmployeeForLoan?.name}</DynamicDialogTitle><DynamicDialogDescription>Kelola pinjaman & cicilan.</DynamicDialogDescription></DynamicDialogHeader>
             <div className="flex-grow overflow-y-auto p-1">
               <Button onClick={() => openLoanFormDialog()} className="mb-4 bg-accent hover:bg-accent/90 text-accent-foreground"><PlusCircle className="mr-2 h-4 w-4" /> Tambah Pinjaman</Button>
               {loans.filter(l => l.employee_id === selectedEmployeeForLoan?.id).length > 0 ? (
@@ -292,8 +297,8 @@ export default function EmployeesPage() {
 
       {isLoanFormDialogOpen && selectedEmployeeForLoan && (
         <DynamicDialog open={isLoanFormDialogOpen} onOpenChange={setIsLoanFormDialogOpen}>
-          <DynamicDialogContent className="sm:max-w-md">
-            <DynamicDialogHeader><DynamicDialogTitle>{editingLoan ? 'Edit' : 'Tambah'} Pinjaman u/ {selectedEmployeeForLoan?.name}</DynamicDialogTitle></DynamicDialogHeader>
+          <DynamicDialogContent className="sm:max-w-md" aria-labelledby={loanFormDialogTitleId}>
+            <DynamicDialogHeader><DynamicDialogTitle id={loanFormDialogTitleId}>{editingLoan ? 'Edit' : 'Tambah'} Pinjaman u/ {selectedEmployeeForLoan?.name}</DynamicDialogTitle></DynamicDialogHeader>
             <div className="grid gap-4 py-4">
               <div className="grid grid-cols-4 items-center gap-4"><Label htmlFor="loanDateForm" className="text-right col-span-1">Tgl Pinjam<span className="text-destructive">*</span></Label><Popover><PopoverTrigger asChild><Button variant={"outline"} className={`col-span-3 justify-start text-left font-normal ${!loanDateState && "text-muted-foreground"}`}><CalendarIcon className="mr-2 h-4 w-4" />{loanDateState ? format(loanDateState, "PPP", { locale: localeID }) : <span>Pilih</span>}</Button></PopoverTrigger><PopoverContent className="w-auto p-0"><Calendar mode="single" selected={loanDateState} onSelect={setLoanDateState} initialFocus /></PopoverContent></Popover></div>
               <div className="grid grid-cols-4 items-center gap-4"><Label htmlFor="loanAmountForm" className="text-right col-span-1">Jumlah (Rp)<span className="text-destructive">*</span></Label><Input id="loanAmountForm" type="number" value={loanAmount} onChange={e => setLoanAmount(e.target.value)} className="col-span-3"/></div>
@@ -307,9 +312,9 @@ export default function EmployeesPage() {
 
       {isInstallmentDialogOpen && selectedLoanForInstallment && selectedEmployeeForLoan && (
         <DynamicDialog open={isInstallmentDialogOpen} onOpenChange={setIsInstallmentDialogOpen}>
-          <DynamicDialogContent className="sm:max-w-lg max-h-[90vh] flex flex-col">
+          <DynamicDialogContent className="sm:max-w-lg max-h-[90vh] flex flex-col" aria-labelledby={installmentDialogTitleId}>
             <DynamicDialogHeader>
-              <DynamicDialogTitle>Cicilan Pinjaman - {selectedEmployeeForLoan?.name}</DynamicDialogTitle>
+              <DynamicDialogTitle id={installmentDialogTitleId}>Cicilan Pinjaman - {selectedEmployeeForLoan?.name}</DynamicDialogTitle>
               <DynamicDialogDescription>Pinjaman: Rp {selectedLoanForInstallment.loan_amount.toLocaleString()} | Sisa: Rp {selectedLoanForInstallment.remaining_balance.toLocaleString()}<br/>Tgl Pinjam: {format(parseISO(selectedLoanForInstallment.loan_date), "dd MMM yyyy", { locale: localeID })}</DynamicDialogDescription>
             </DynamicDialogHeader>
             <div className="flex-grow grid grid-cols-1 md:grid-cols-2 gap-6 overflow-y-auto p-1">

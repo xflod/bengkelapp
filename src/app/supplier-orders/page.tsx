@@ -1,7 +1,7 @@
 
 "use client";
 
-import React, { useState, useEffect, useCallback, useMemo } from 'react';
+import React, { useState, useEffect, useCallback, useMemo, useId } from 'react';
 import dynamic from 'next/dynamic';
 import { PageHeader } from "@/components/shared/PageHeader";
 import { Button } from "@/components/ui/button";
@@ -49,6 +49,8 @@ export default function SupplierOrdersPage() {
   const [allSuppliers, setAllSuppliers] = useState<Supplier[]>([]);
   const [selectedSupplier, setSelectedSupplier] = useState<Supplier | null>(null);
   const [isSupplierPopoverOpen, setIsSupplierPopoverOpen] = useState(false);
+
+  const detailOrderDialogTitleId = useId();
 
 
   const fetchInventory = useCallback(async () => {
@@ -274,9 +276,9 @@ export default function SupplierOrdersPage() {
       </Tabs>
       {selectedOrderForDetail && isDetailOrderDialogOpen && (
         <DynamicDialog open={isDetailOrderDialogOpen} onOpenChange={setIsDetailOrderDialogOpen}>
-          <DynamicDialogContent className="sm:max-w-lg max-h-[90vh] flex flex-col">
+          <DynamicDialogContent className="sm:max-w-lg max-h-[90vh] flex flex-col" aria-labelledby={detailOrderDialogTitleId}>
             <DynamicDialogHeader>
-              <DynamicDialogTitle>Detail Order: {selectedOrderForDetail.id}</DynamicDialogTitle>
+              <DynamicDialogTitle id={detailOrderDialogTitleId}>Detail Order: {selectedOrderForDetail.id}</DynamicDialogTitle>
               <DynamicDialogDescription>Tanggal: {format(parseISO(selectedOrderForDetail.orderDate), "dd MMM yyyy, HH:mm", { locale: localeID })} | Supplier: {selectedOrderForDetail.supplierName || '-'} <br/>Status: <Badge className={`${getStatusBadgeColor(selectedOrderForDetail.status)} text-white`}>{selectedOrderForDetail.status}</Badge></DynamicDialogDescription>
             </DynamicDialogHeader>
             <div className="flex-grow overflow-y-auto pr-2">
@@ -300,4 +302,3 @@ export default function SupplierOrdersPage() {
     </div>
   );
 }
-
