@@ -14,8 +14,9 @@ import {
   ShoppingBag,
   ArchiveRestore,
   BookOpenText,
-  BookOpen, // Changed from PiggyBank
-  ReceiptText
+  BookOpen,
+  ReceiptText,
+  Settings // Added Settings icon
 } from 'lucide-react';
 
 export const NAV_ITEMS: NavItem[] = [
@@ -87,11 +88,16 @@ export const NAV_ITEMS: NavItem[] = [
   {
     title: 'Buku Tabungan',
     href: '/finance/savings',
-    icon: BookOpen, // Changed icon here
+    icon: BookOpen,
   },
   {
     title: 'Laporan',
     href: '/reports/profit',
     icon: BarChartBig,
+  },
+  {
+    title: 'Pengaturan',
+    href: '/settings',
+    icon: Settings,
   },
 ];

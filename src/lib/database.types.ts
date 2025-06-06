@@ -527,7 +527,7 @@ export interface Database {
         }
         Relationships: []
       }
-      suppliers: { // New suppliers table definition
+      suppliers: {
         Row: {
           id: number
           name: string
@@ -559,6 +559,36 @@ export interface Database {
           updated_at?: string | null
         }
         Relationships: []
+      }
+      shop_settings: {
+        Row: {
+          id: number;
+          shop_name: string | null;
+          shop_whatsapp_number: string | null;
+          shop_address: string | null;
+          receipt_footer_text: string | null;
+          shop_slogan: string | null;
+          updated_at: string | null;
+        };
+        Insert: {
+          id?: number; // Default is 1
+          shop_name?: string | null;
+          shop_whatsapp_number?: string | null;
+          shop_address?: string | null;
+          receipt_footer_text?: string | null;
+          shop_slogan?: string | null;
+          updated_at?: string | null;
+        };
+        Update: {
+          id?: number;
+          shop_name?: string | null;
+          shop_whatsapp_number?: string | null;
+          shop_address?: string | null;
+          receipt_footer_text?: string | null;
+          shop_slogan?: string | null;
+          updated_at?: string | null;
+        };
+        Relationships: [];
       }
     }
     Views: {

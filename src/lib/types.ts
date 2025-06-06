@@ -229,7 +229,6 @@ export interface Expense {
   updatedAt: string; 
 }
 
-// New Supplier Type
 export interface Supplier {
   id: string;
   name: string;
@@ -239,5 +238,15 @@ export interface Supplier {
   notes?: string;
   created_at: string;
   updated_at: string;
+}
+
+export interface ShopSettings {
+  id: number; // Should always be 1
+  shop_name?: string;
+  shop_whatsapp_number?: string;
+  shop_address?: string;
+  receipt_footer_text?: string;
+  shop_slogan?: string;
+  updated_at?: string;
 }
     
