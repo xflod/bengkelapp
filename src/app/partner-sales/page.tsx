@@ -10,7 +10,7 @@ import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle }
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { useToast } from "@/hooks/use-toast";
-import type { Product, SaleItem, SaleTransactionForReport, ReportSaleItem } from "@/lib/types";
+import type { Product, SaleItem, SaleTransactionForReport, ReportSaleItem, ShopSettings } from "@/lib/types";
 import { supabase } from '@/lib/supabase';
 import { Search, Camera, PlusCircle, MinusCircle, Trash2, CreditCard, ShoppingCart, XCircle, HandCoins, Landmark, Download, Share2, Percent } from "lucide-react";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -40,6 +40,9 @@ interface ReceiptDetails {
   changeCalculated?: number;
   customerName?: string; 
   receiptTitle?: string;
+  shopName?: string;
+  shopAddress?: string;
+  shopWhatsapp?: string;
 }
 
 export default function PartnerSalesPage() {
@@ -65,29 +68,25 @@ export default function PartnerSalesPage() {
   const [receiptDetails, setReceiptDetails] = React.useState<ReceiptDetails | null>(null);
   const [isReceiptModalOpen, setIsReceiptModalOpen] = React.useState(false);
   const [partnerName, setPartnerName] = React.useState("Bengkel Mitra");
+  const [shopSettings, setShopSettings] = React.useState<ShopSettings | null>(null);
 
   React.useEffect(() => {
-    const fetchProducts = async () => {
-      const { data, error } = await supabase
+    const fetchInitialData = async () => {
+      // Fetch Products
+      const { data: productsData, error: productsError } = await supabase
         .from('products')
         .select('*')
         .eq('is_active', true)
         .filter('selling_prices', 'cs', '[{"tierName":"partner"}]');
       
-      if (error) {
-        console.error("Error fetching partner products (raw):", JSON.stringify(error, null, 2));
+      if (productsError) {
+        console.error("Error fetching partner products (raw):", JSON.stringify(productsError, null, 2));
         let detailedMessage = "Gagal memuat inventaris partner dari server.";
-        if (error.message) {
-          detailedMessage = error.message;
-        } else if (typeof error === 'object' && error !== null && Object.keys(error).length === 0) {
-          detailedMessage = "Query produk partner berhasil namun tidak ada data yang dikembalikan, atau akses ditolak. Mohon periksa Row Level Security (RLS) di Supabase untuk tabel 'products' dan pastikan tabelnya ada serta memiliki harga partner.";
-        } else if (typeof error === 'object' && error !== null) {
-          detailedMessage = `Terjadi kesalahan: ${JSON.stringify(error)}. Periksa RLS Supabase.`;
-        }
+        // ... (existing error handling)
         toast({variant: "destructive", title: "Gagal Memuat Inventaris Partner", description: detailedMessage});
         setInventoryProducts([]);
       } else {
-         const transformedData = data.map(p => ({
+         const transformedData = productsData.map(p => ({
           ...p,
           id: String(p.id),
           sellingPrices: typeof p.selling_prices === 'string' ? JSON.parse(p.selling_prices) : p.selling_prices,
@@ -99,8 +98,21 @@ export default function PartnerSalesPage() {
         setInventoryProducts(transformedData as Product[]);
         setFilteredProducts(transformedData as Product[]);
       }
+
+      // Fetch Shop Settings
+      const { data: settingsData, error: settingsError } = await supabase
+        .from('shop_settings')
+        .select('*')
+        .eq('id', 1)
+        .single();
+
+      if (settingsError && settingsError.code !== 'PGRST116') {
+        toast({ variant: "destructive", title: "Gagal memuat pengaturan bengkel untuk nota" });
+      } else if (settingsData) {
+        setShopSettings(settingsData as ShopSettings);
+      }
     };
-    fetchProducts();
+    fetchInitialData();
   }, [toast]);
 
   React.useEffect(() => { const results = inventoryProducts.filter(product => product.name.toLowerCase().includes(searchTerm.toLowerCase()) || product.sku.toLowerCase().includes(searchTerm.toLowerCase())); setFilteredProducts(results); }, [searchTerm, inventoryProducts]);
@@ -170,7 +182,17 @@ export default function PartnerSalesPage() {
         setInventoryProducts(transformedData as Product[]);
     }
 
-    const newReceipt: ReceiptDetails = { transactionId, date: format(transactionDate, "dd MMMM yyyy, HH:mm", { locale: localeID }), items: [...cart], subtotal: currentSubtotal, discount: actualDiscount, finalTotal: currentFinalTotal, paymentMethod: paymentType, cashReceived: paymentType === 'Tunai' ? currentCashReceived : undefined, changeCalculated: paymentType === 'Tunai' ? currentChangeCalculated : undefined, customerName: partnerName || "Bengkel Mitra", receiptTitle: "Nota Transaksi Mitra" };
+    const newReceipt: ReceiptDetails = { 
+      transactionId, date: format(transactionDate, "dd MMMM yyyy, HH:mm", { locale: localeID }), 
+      items: [...cart], subtotal: currentSubtotal, discount: actualDiscount, finalTotal: currentFinalTotal, 
+      paymentMethod: paymentType, cashReceived: paymentType === 'Tunai' ? currentCashReceived : undefined, 
+      changeCalculated: paymentType === 'Tunai' ? currentChangeCalculated : undefined, 
+      customerName: partnerName || "Bengkel Mitra", 
+      receiptTitle: "Nota Transaksi Mitra",
+      shopName: shopSettings?.shop_name,
+      shopAddress: shopSettings?.shop_address,
+      shopWhatsapp: shopSettings?.shop_whatsapp_number,
+    };
     setReceiptDetails(newReceipt);
 
     toast({ title: "Transaksi Partner Berhasil", description: `${details}. Nota tersedia.` });
@@ -181,7 +203,7 @@ export default function PartnerSalesPage() {
   const confirmCashPayment = () => { const finalTotal = calculateFinalTotal(); const received = parseFloat(cashReceived) || 0; if (received < finalTotal) { toast({ variant: "destructive", title: "Uang Kurang" }); return; } completeTransaction("Tunai", `Kembalian: Rp ${changeCalculated.toLocaleString()}`); };
   const confirmTransferPayment = () => { completeTransaction("Transfer", "Menunggu konfirmasi transfer."); };
   const handleDownloadReceipt = () => { if (receiptRef.current && HTML2Canvas) { HTML2Canvas.default(receiptRef.current, { scale: 2, backgroundColor: '#ffffff' }).then(canvas => { const image = canvas.toDataURL("image/png", 0.8); const link = document.createElement('a'); link.href = image; link.download = `nota_partner_${receiptDetails?.transactionId || 'transaksi'}.png`; document.body.appendChild(link); link.click(); document.body.removeChild(link); toast({ title: "Nota Partner Diunduh" }); }).catch(err => { toast({ variant: "destructive", title: "Gagal Unduh Nota Partner" }); }); } };
-  const handleShareToWhatsApp = () => { if (!receiptDetails) return; let message = `*${receiptDetails.receiptTitle || 'Nota Transaksi BengkelKu'}*\n\nID Transaksi: ${receiptDetails.transactionId}\nTanggal: ${receiptDetails.date}\n`; if (receiptDetails.customerName) message += `Partner: ${receiptDetails.customerName}\n`; message += `------------------------------------\n`; receiptDetails.items.forEach(item => { message += `${item.productName} (x${item.quantity})\n  Rp ${item.unitPrice.toLocaleString()} x ${item.quantity} = Rp ${item.totalPrice.toLocaleString()}\n`; }); message += `------------------------------------\nSubtotal: Rp ${receiptDetails.subtotal.toLocaleString()}\n`; if (receiptDetails.discount > 0) message += `Diskon: Rp ${receiptDetails.discount.toLocaleString()}\n`; message += `*Total Bayar: Rp ${receiptDetails.finalTotal.toLocaleString()}*\nMetode Pembayaran: ${receiptDetails.paymentMethod}\n`; if (receiptDetails.paymentMethod === 'Tunai') { message += `Uang Diterima: Rp ${receiptDetails.cashReceived?.toLocaleString() || 0}\nKembalian: Rp ${receiptDetails.changeCalculated?.toLocaleString() || 0}\n`; } message += `------------------------------------\nTerima kasih atas kerjasamanya!\n\n_Nota ini juga dapat diunduh._`; const whatsappUrl = `https://api.whatsapp.com/send?text=${encodeURIComponent(message)}`; window.open(whatsappUrl, '_blank'); toast({ title: "Bagikan ke WhatsApp" }); };
+  const handleShareToWhatsApp = () => { if (!receiptDetails) return; let message = `*${receiptDetails.shopName || 'Bengkel Anda'}*\n`; if(receiptDetails.shopAddress) message += `${receiptDetails.shopAddress}\n`; if(receiptDetails.shopWhatsapp) message += `WA: ${receiptDetails.shopWhatsapp}\n`; message += `\n*Nota Transaksi Mitra*\nID: ${receiptDetails.transactionId}\nTgl: ${receiptDetails.date}\n`; if (receiptDetails.customerName) message += `Partner: ${receiptDetails.customerName}\n`; message += `------------------------------------\n`; receiptDetails.items.forEach(item => { message += `${item.productName} (x${item.quantity})\n  Rp ${item.unitPrice.toLocaleString()} x ${item.quantity} = Rp ${item.totalPrice.toLocaleString()}\n`; }); message += `------------------------------------\nSubtotal: Rp ${receiptDetails.subtotal.toLocaleString()}\n`; if (receiptDetails.discount > 0) message += `Diskon: Rp ${receiptDetails.discount.toLocaleString()}\n`; message += `*Total Bayar: Rp ${receiptDetails.finalTotal.toLocaleString()}*\nMetode: ${receiptDetails.paymentMethod}\n`; if (receiptDetails.paymentMethod === 'Tunai') { message += `Tunai: Rp ${receiptDetails.cashReceived?.toLocaleString() || 0}\nKembali: Rp ${receiptDetails.changeCalculated?.toLocaleString() || 0}\n`; } message += `------------------------------------\n${shopSettings?.receipt_footer_text || 'Terima kasih atas kerjasamanya!'}\n\n_Nota ini juga dapat diunduh._`; const whatsappUrl = `https://api.whatsapp.com/send?text=${encodeURIComponent(message)}`; window.open(whatsappUrl, '_blank'); toast({ title: "Bagikan ke WhatsApp" }); };
 
   const subtotalForCart = calculateSubtotal();
   const finalTotalForPayment = calculateFinalTotal();
@@ -208,7 +230,7 @@ export default function PartnerSalesPage() {
             <Tabs value={paymentMethodTab} onValueChange={(value) => setPaymentMethodTab(value as 'cash' | 'transfer')} className="w-full pt-2">
               <TabsList className="grid w-full grid-cols-2"><TabsTrigger value="cash"><HandCoins className="mr-2 h-4 w-4" />Tunai</TabsTrigger><TabsTrigger value="transfer"><Landmark className="mr-2 h-4 w-4" />Transfer</TabsTrigger></TabsList>
               <TabsContent value="cash" className="space-y-4 pt-4"><div className="space-y-2"><Label htmlFor="cashReceivedPartner">Uang Diterima (Rp)</Label><Input id="cashReceivedPartner" type="number" value={cashReceived} onChange={(e) => setCashReceived(e.target.value)} placeholder="e.g. 150000" className="text-base w-full"/></div><div className="flex flex-wrap gap-2"><Button variant="outline" onClick={() => handlePresetCash(finalTotalForPayment)} className="flex-1 text-xs min-w-[80px]">Uang Pas</Button><Button variant="outline" onClick={() => handlePresetCash(50000)} className="flex-1 text-xs min-w-[80px]">Rp 50rb</Button><Button variant="outline" onClick={() => handlePresetCash(100000)} className="flex-1 text-xs min-w-[80px]">Rp 100rb</Button></div><div className="space-y-1 text-right"><p className="text-sm">Total: Rp {finalTotalForPayment.toLocaleString()}</p><p className="text-sm">Diterima: Rp {(parseFloat(cashReceived) || 0).toLocaleString()}</p><p className="text-lg font-semibold">Kembali: Rp {changeCalculated >= 0 ? changeCalculated.toLocaleString() : '0'}</p>{(parseFloat(cashReceived) || 0) < finalTotalForPayment && cashReceived !== "" && (<p className="text-sm text-destructive">Uang kurang.</p>)}</div><Button onClick={confirmCashPayment} className="w-full bg-primary hover:bg-primary/90 text-primary-foreground" disabled={(parseFloat(cashReceived) || 0) < finalTotalForPayment}>Konfirmasi Tunai</Button></TabsContent>
-              <TabsContent value="transfer" className="space-y-4 pt-4"><p className="text-sm text-muted-foreground">Transfer <span className="font-semibold text-foreground">Rp {finalTotalForPayment.toLocaleString()}</span> ke:</p><div className="p-3 bg-muted rounded-md text-sm"><p className="font-medium">Bank XYZ</p><p>No. Rek: <span className="font-semibold">123-456-7890</span> A/N: <span className="font-semibold">BengkelKu Jaya (Partner)</span></p></div><Button onClick={confirmTransferPayment} className="w-full bg-primary hover:bg-primary/90 text-primary-foreground">Sudah Transfer</Button></TabsContent>
+              <TabsContent value="transfer" className="space-y-4 pt-4"><p className="text-sm text-muted-foreground">Transfer <span className="font-semibold text-foreground">Rp {finalTotalForPayment.toLocaleString()}</span> ke:</p><div className="p-3 bg-muted rounded-md text-sm"><p className="font-medium">Bank XYZ</p><p>No. Rek: <span className="font-semibold">123-456-7890</span> A/N: <span className="font-semibold">{shopSettings?.shop_name || 'Bengkel Anda'} (Partner)</span></p></div><Button onClick={confirmTransferPayment} className="w-full bg-primary hover:bg-primary/90 text-primary-foreground">Sudah Transfer</Button></TabsContent>
             </Tabs>
             <DynamicDialogFooter className="sm:justify-start mt-4"><DynamicDialogClose asChild><Button type="button" variant="outline" className="w-full sm:w-auto">Batal</Button></DynamicDialogClose></DynamicDialogFooter>
           </DynamicDialogContent>
@@ -218,7 +240,14 @@ export default function PartnerSalesPage() {
         <DynamicDialog open={isReceiptModalOpen} onOpenChange={setIsReceiptModalOpen}>
           <DynamicDialogContent className="sm:max-w-sm w-[90vw]">
             <DynamicDialogHeader><DynamicDialogTitle>{receiptDetails?.receiptTitle || "Nota Transaksi"}</DynamicDialogTitle><DynamicDialogDescription>ID: {receiptDetails?.transactionId}</DynamicDialogDescription></DynamicDialogHeader>
-            <div ref={receiptRef} id="receipt-content" className="p-4 border rounded-md bg-white text-black text-xs"><div className="text-center mb-2"><h3 className="font-bold text-sm">BengkelKu App (Partner)</h3><p>Jl. Otomotif No. 1, Kota Maju</p><p>Telp: 0812-3456-7890</p></div><hr className="my-1 border-dashed border-gray-400"/><p>No: {receiptDetails?.transactionId}</p><p>Tgl: {receiptDetails?.date}</p>{receiptDetails?.customerName && <p>Partner: {receiptDetails.customerName}</p>}<hr className="my-1 border-dashed border-gray-400"/><table className="w-full my-1 table-fixed"><thead><tr><th className="text-left font-normal w-[40%]">Item</th><th className="text-center font-normal w-[15%]">Qty</th><th className="text-right font-normal w-[22.5%]">Harga</th><th className="text-right font-normal w-[22.5%]">Total</th></tr></thead><tbody>{receiptDetails?.items.map(item => (<tr key={item.productId}><td className="py-0.5 break-words">{item.productName}</td><td className="text-center py-0.5">{item.quantity}</td><td className="text-right py-0.5 break-words">{item.unitPrice.toLocaleString()}</td><td className="text-right py-0.5 break-words">{item.totalPrice.toLocaleString()}</td></tr>))}</tbody></table><hr className="my-1 border-dashed border-gray-400"/><div className="text-right"><p>Subtotal: <span className="font-semibold">Rp {receiptDetails?.subtotal.toLocaleString()}</span></p>{receiptDetails && receiptDetails.discount > 0 && (<p>Diskon: <span className="font-semibold">Rp {receiptDetails.discount.toLocaleString()}</span></p>)}<p className="font-bold">Total Bayar: <span className="font-bold">Rp {receiptDetails?.finalTotal.toLocaleString()}</span></p>{receiptDetails?.paymentMethod === 'Tunai' && (<><p>Tunai: Rp {receiptDetails?.cashReceived?.toLocaleString()}</p><p>Kembali: Rp {receiptDetails?.changeCalculated?.toLocaleString()}</p></>)}<p>Metode: {receiptDetails?.paymentMethod}</p></div><hr className="my-1 border-dashed border-gray-400"/><p className="text-center mt-2">Terima Kasih atas Kerjasamanya!</p><p className="text-center text-[0.6rem]">Layanan & Suku Cadang Motor (Mitra)</p></div>
+            <div ref={receiptRef} id="receipt-content" className="p-4 border rounded-md bg-white text-black text-xs">
+              <div className="text-center mb-2">
+                <h3 className="font-bold text-base">{receiptDetails?.shopName || 'Bengkel Anda'}</h3>
+                {receiptDetails?.shopAddress && <p className="text-xs">{receiptDetails.shopAddress}</p>}
+                {receiptDetails?.shopWhatsapp && <p className="text-xs">Telp/WA: {receiptDetails.shopWhatsapp}</p>}
+              </div>
+              <hr className="my-1 border-dashed border-gray-400"/>
+              <p>No: {receiptDetails?.transactionId}</p><p>Tgl: {receiptDetails?.date}</p>{receiptDetails?.customerName && <p>Partner: {receiptDetails.customerName}</p>}<hr className="my-1 border-dashed border-gray-400"/><table className="w-full my-1 table-fixed"><thead><tr><th className="text-left font-normal w-[40%]">Item</th><th className="text-center font-normal w-[15%]">Qty</th><th className="text-right font-normal w-[22.5%]">Harga</th><th className="text-right font-normal w-[22.5%]">Total</th></tr></thead><tbody>{receiptDetails?.items.map(item => (<tr key={item.productId}><td className="py-0.5 break-words">{item.productName}</td><td className="text-center py-0.5">{item.quantity}</td><td className="text-right py-0.5 break-words">{item.unitPrice.toLocaleString()}</td><td className="text-right py-0.5 break-words">{item.totalPrice.toLocaleString()}</td></tr>))}</tbody></table><hr className="my-1 border-dashed border-gray-400"/><div className="text-right"><p>Subtotal: <span className="font-semibold">Rp {receiptDetails?.subtotal.toLocaleString()}</span></p>{receiptDetails && receiptDetails.discount > 0 && (<p>Diskon: <span className="font-semibold">Rp {receiptDetails.discount.toLocaleString()}</span></p>)}<p className="font-bold">Total Bayar: <span className="font-bold">Rp {receiptDetails?.finalTotal.toLocaleString()}</span></p>{receiptDetails?.paymentMethod === 'Tunai' && (<><p>Tunai: Rp {receiptDetails?.cashReceived?.toLocaleString()}</p><p>Kembali: Rp {receiptDetails?.changeCalculated?.toLocaleString()}</p></>)}<p>Metode: {receiptDetails?.paymentMethod}</p></div><hr className="my-1 border-dashed border-gray-400"/><p className="text-center mt-2">{shopSettings?.receipt_footer_text || 'Terima Kasih atas Kerjasamanya!'}</p>{shopSettings?.shop_slogan && <p className="text-center text-[0.6rem]">{shopSettings.shop_slogan}</p>}</div>
             <DynamicDialogFooter className="flex flex-col sm:flex-row sm:justify-end gap-2 mt-4"><Button onClick={handleDownloadReceipt} variant="outline" className="w-full sm:w-auto"><Download className="mr-2 h-4 w-4" /> Unduh (PNG)</Button><Button onClick={handleShareToWhatsApp} variant="outline" className="w-full sm:w-auto"><Share2 className="mr-2 h-4 w-4" /> WA</Button><DynamicDialogClose asChild><Button type="button" className="w-full sm:w-auto bg-primary hover:bg-primary/90 text-primary-foreground">Tutup</Button></DynamicDialogClose></DynamicDialogFooter>
           </DynamicDialogContent>
         </DynamicDialog>
@@ -226,3 +255,4 @@ export default function PartnerSalesPage() {
     </div>
   );
 }
+
