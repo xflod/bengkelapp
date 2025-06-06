@@ -1,8 +1,8 @@
 
 "use client";
 
-import React, { useState, useEffect, useCallback, useMemo, useId } from 'react'; // Added useId
-import dynamic from 'next/dynamic';
+import React, { useState, useEffect, useCallback, useMemo, useId } from 'react';
+// Removed dynamic imports for dialog parts, will import directly
 import { PageHeader } from "@/components/shared/PageHeader";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -19,13 +19,16 @@ import { supabase } from '@/lib/supabase';
 import { PackagePlus, Edit3, Trash2, Search, Filter, AlertTriangle } from "lucide-react";
 import { Label } from '@/components/ui/label';
 
-const DynamicDialog = dynamic(() => import('@/components/ui/dialog').then(mod => mod.Dialog), { ssr: false });
-const DynamicDialogContent = dynamic(() => import('@/components/ui/dialog').then(mod => mod.DialogContent), { ssr: false });
-const DynamicDialogHeader = dynamic(() => import('@/components/ui/dialog').then(mod => mod.DialogHeader), { ssr: false });
-const DynamicDialogTitle = dynamic(() => import('@/components/ui/dialog').then(mod => mod.DialogTitle), { ssr: false });
-const DynamicDialogDescription = dynamic(() => import('@/components/ui/dialog').then(mod => mod.DialogDescription), { ssr: false });
-const DynamicDialogFooter = dynamic(() => import('@/components/ui/dialog').then(mod => mod.DialogFooter), { ssr: false });
-const DynamicDialogClose = dynamic(() => import('@/components/ui/dialog').then(mod => mod.DialogClose), { ssr: false });
+// Direct imports for the dialog components
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogDescription,
+  DialogFooter,
+  DialogClose
+} from '@/components/ui/dialog';
 
 
 type ProductFilter = 'all' | 'lowStock' | 'outOfStock' | 'inactive' | 'allActive';
@@ -52,7 +55,7 @@ export default function InventoryPage() {
   const [searchTerm, setSearchTerm] = useState('');
   const [activeFilter, setActiveFilter] = useState<ProductFilter>('allActive');
 
-  const inventoryFormDialogTitleId = useId(); // Generate unique ID for the dialog title
+  const inventoryFormDialogTitleId = useId(); 
 
   const fetchProducts = useCallback(async () => {
     setIsLoading(true);
@@ -377,19 +380,19 @@ export default function InventoryPage() {
       </Card>
 
       {isFormDialogOpen && (
-        <DynamicDialog open={isFormDialogOpen} onOpenChange={(open) => { setIsFormDialogOpen(open); if (!open) resetFormFields(); }}>
-          <DynamicDialogContent 
+        <Dialog open={isFormDialogOpen} onOpenChange={(open) => { setIsFormDialogOpen(open); if (!open) resetFormFields(); }}>
+          <DialogContent 
             className="sm:max-w-lg max-h-[90vh] flex flex-col"
             aria-labelledby={inventoryFormDialogTitleId}
           >
-            <DynamicDialogHeader className="flex-shrink-0">
-              <DynamicDialogTitle id={inventoryFormDialogTitleId}>
+            <DialogHeader className="flex-shrink-0">
+              <DialogTitle id={inventoryFormDialogTitleId}>
                 {editingProduct ? 'Edit Item Inventaris' : 'Tambah Item Baru ke Inventaris'}
-              </DynamicDialogTitle>
-              <DynamicDialogDescription>
+              </DialogTitle>
+              <DialogDescription>
                 {editingProduct ? `Mengedit detail untuk ${editingProduct.name}.` : 'Masukkan detail item baru.'}
-              </DynamicDialogDescription>
-            </DynamicDialogHeader>
+              </DialogDescription>
+            </DialogHeader>
             <div className="grid gap-y-3 gap-x-4 py-2 flex-grow overflow-y-auto pr-3 text-sm">
               <div className="grid grid-cols-4 items-center"><Label htmlFor="sku" className="text-right col-span-4 sm:col-span-1 pr-3">SKU<span className="text-destructive">*</span></Label><Input id="sku" value={sku} onChange={(e) => setSku(e.target.value.toUpperCase())} className="col-span-4 sm:col-span-3" placeholder="Contoh: SKU-PRD-001" disabled={!!editingProduct} /></div>
               <div className="grid grid-cols-4 items-center"><Label htmlFor="productName" className="text-right col-span-4 sm:col-span-1 pr-3">Nama Item<span className="text-destructive">*</span></Label><Input id="productName" value={productName} onChange={(e) => setProductName(e.target.value)} className="col-span-4 sm:col-span-3" placeholder="Nama lengkap produk atau jasa" /></div>
@@ -416,12 +419,12 @@ export default function InventoryPage() {
                   <div className="col-span-4 sm:col-span-3 flex items-center space-x-2"><Switch id="isActiveSwitch" checked={isActive} onCheckedChange={setIsActive} /><span className="text-xs text-muted-foreground">{isActive ? "Aktif (dapat dijual)" : "Nonaktif (tidak tampil di penjualan)"}</span></div>
               </div>
             </div>
-            <DynamicDialogFooter className="flex-shrink-0 pt-4 border-t">
-              <DynamicDialogClose asChild><Button type="button" variant="outline">Batal</Button></DynamicDialogClose>
+            <DialogFooter className="flex-shrink-0 pt-4 border-t">
+              <DialogClose asChild><Button type="button" variant="outline">Batal</Button></DialogClose>
               <Button type="button" onClick={handleSaveProduct} className="bg-primary hover:bg-primary/90 text-primary-foreground">Simpan Item</Button>
-            </DynamicDialogFooter>
-          </DynamicDialogContent>
-        </DynamicDialog>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
       )}
     </div>
   );
