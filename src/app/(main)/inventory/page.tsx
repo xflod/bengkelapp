@@ -323,42 +323,42 @@ export default function InventoryPage() {
                 <TableHeader className="sticky top-0 bg-card z-10">
                   <TableRow>
                     <TableHead className="w-[60px] px-1 py-1.5 text-xs">Status</TableHead>
-                    <TableHead className="min-w-[70px] px-1 py-1.5 text-xs hidden sm:table-cell">SKU</TableHead>
+                    <TableHead className="min-w-[70px] px-1 py-1.5 text-xs">SKU</TableHead>
                     <TableHead className="min-w-[120px] px-1 py-1.5 text-xs">Nama Item</TableHead>
-                    <TableHead className="min-w-[80px] px-1 py-1.5 text-xs hidden sm:table-cell">Kategori</TableHead>
+                    <TableHead className="min-w-[80px] px-1 py-1.5 text-xs">Kategori</TableHead>
                     <TableHead className="text-right min-w-[80px] px-1 py-1.5 text-xs">Hrg. Modal</TableHead>
                     <TableHead className="text-right min-w-[80px] px-1 py-1.5 text-xs">Hrg. Jual</TableHead>
                     <TableHead className="text-right min-w-[80px] px-1 py-1.5 text-xs">Hrg. Partner</TableHead>
                     <TableHead className="text-right min-w-[90px] px-1 py-1.5 text-xs">Hrg. Jual+Pasang</TableHead>
                     <TableHead className="text-center min-w-[50px] px-1 py-1.5 text-xs">Stok</TableHead>
-                    <TableHead className="text-center min-w-[50px] px-1 py-1.5 text-xs hidden sm:table-cell">Stok Min.</TableHead>
+                    <TableHead className="text-center min-w-[50px] px-1 py-1.5 text-xs">Stok Min.</TableHead>
                     <TableHead className="text-center w-[80px] px-1 py-1.5 text-xs">Aksi</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
                   {filteredAndSortedProducts.map((product) => (
                     <TableRow key={product.id} className={getProductRowClass(product)}>
-                      <TableCell className="px-1 py-1">
+                      <TableCell className="px-1 py-1 text-xs">
                         <Switch checked={product.isActive} onCheckedChange={() => handleToggleActive(product.id, product.isActive)} aria-label={product.isActive ? "Nonaktifkan" : "Aktifkan"}/>
                       </TableCell>
-                      <TableCell className="font-mono text-xs px-1 py-1 break-all hidden sm:table-cell">{product.sku}</TableCell>
-                      <TableCell className="font-medium px-1 py-1 break-words text-sm">
+                      <TableCell className="font-mono text-xs px-1 py-1 break-all">{product.sku}</TableCell>
+                      <TableCell className="font-medium px-1 py-1 break-words text-xs">
                         {product.name}
                         {!product.isActive && <Badge variant="outline" className="ml-1.5 text-xs">Nonaktif</Badge>}
                         {product.category !== 'Jasa' && product.isActive && product.stockQuantity === 0 && <Badge variant="destructive" className="ml-1.5 text-xs">Habis</Badge>}
                         {product.category !== 'Jasa' && product.isActive && product.stockQuantity > 0 && product.lowStockThreshold > 0 && product.stockQuantity <= product.lowStockThreshold && <Badge variant="outline" className="ml-1.5 text-xs border-yellow-500 text-yellow-700">Menipis</Badge>}
                       </TableCell>
-                      <TableCell className="px-1 py-1 text-sm hidden sm:table-cell">{product.category}</TableCell>
-                      <TableCell className="text-right px-1 py-1 text-sm">Rp {product.costPrice.toLocaleString()}</TableCell>
-                      <TableCell className="text-right px-1 py-1 text-sm">Rp {product.sellingPrices.find(p => p.tierName === 'default')?.price.toLocaleString() || '-'}</TableCell>
-                      <TableCell className="text-right px-1 py-1 text-sm">
+                      <TableCell className="px-1 py-1 text-xs">{product.category}</TableCell>
+                      <TableCell className="text-right px-1 py-1 text-xs">Rp {product.costPrice.toLocaleString()}</TableCell>
+                      <TableCell className="text-right px-1 py-1 text-xs">Rp {product.sellingPrices.find(p => p.tierName === 'default')?.price.toLocaleString() || '-'}</TableCell>
+                      <TableCell className="text-right px-1 py-1 text-xs">
                         {product.sellingPrices.find(p => p.tierName === 'partner')?.price?.toLocaleString() ? `Rp ${product.sellingPrices.find(p => p.tierName === 'partner')?.price.toLocaleString()}` : '-'}
                       </TableCell>
-                       <TableCell className="text-right px-1 py-1 text-sm">
+                       <TableCell className="text-right px-1 py-1 text-xs">
                         {product.category !== 'Jasa' && product.sellingPrices.find(p => p.tierName === 'servicePackage')?.price?.toLocaleString() ? `Rp ${product.sellingPrices.find(p => p.tierName === 'servicePackage')?.price.toLocaleString()}` : '-'}
                       </TableCell>
-                      <TableCell className="text-center px-1 py-1 text-sm">{product.category === 'Jasa' ? '-' : product.stockQuantity}</TableCell>
-                      <TableCell className="text-center px-1 py-1 text-sm hidden sm:table-cell">{product.category === 'Jasa' ? '-' : product.lowStockThreshold}</TableCell>
+                      <TableCell className="text-center px-1 py-1 text-xs">{product.category === 'Jasa' ? '-' : product.stockQuantity}</TableCell>
+                      <TableCell className="text-center px-1 py-1 text-xs">{product.category === 'Jasa' ? '-' : product.lowStockThreshold}</TableCell>
                       <TableCell className="text-center px-1 py-1">
                         <div className="flex justify-center items-center gap-1">
                           <Button variant="ghost" size="icon" className="h-7 w-7 hover:bg-accent" onClick={() => handleOpenFormDialog(product)} title="Edit Item"><Edit3 className="h-4 w-4" /></Button>
@@ -393,7 +393,7 @@ export default function InventoryPage() {
                  {editingProduct ? `Mengedit detail untuk ${editingProduct.name}.` : 'Masukkan detail item baru.'}
               </DialogDescription>
             </DialogHeader>
-            <div className="flex-grow overflow-y-auto pr-3 text-sm space-y-3 py-2">
+            <div className="flex-grow overflow-y-auto pr-3 text-sm space-y-1 sm:space-y-3 py-2">
               <div className="grid grid-cols-1 sm:grid-cols-4 items-center gap-x-4 gap-y-1 sm:gap-y-2"><Label htmlFor="sku" className="col-span-1 text-left sm:text-right sm:col-span-1 sm:pr-3">SKU<span className="text-destructive">*</span></Label><Input id="sku" value={sku} onChange={(e) => setSku(e.target.value.toUpperCase())} className="col-span-1 sm:col-span-3" placeholder="Contoh: SKU-PRD-001" disabled={!!editingProduct} /></div>
               <div className="grid grid-cols-1 sm:grid-cols-4 items-center gap-x-4 gap-y-1 sm:gap-y-2"><Label htmlFor="productName" className="col-span-1 text-left sm:text-right sm:col-span-1 sm:pr-3">Nama Item<span className="text-destructive">*</span></Label><Input id="productName" value={productName} onChange={(e) => setProductName(e.target.value)} className="col-span-1 sm:col-span-3" placeholder="Nama lengkap produk atau jasa" /></div>
               <div className="grid grid-cols-1 sm:grid-cols-4 items-center gap-x-4 gap-y-1 sm:gap-y-2">
@@ -429,8 +429,3 @@ export default function InventoryPage() {
     </div>
   );
 }
-
-
-    
-
-    
