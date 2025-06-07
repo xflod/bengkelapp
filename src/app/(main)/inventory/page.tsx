@@ -16,6 +16,7 @@ import { Badge } from "@/components/ui/badge";
 import { useToast } from "@/hooks/use-toast";
 import type { Product, SellingPriceTier, ProductCategory } from "@/lib/types";
 import { supabase } from '@/lib/supabase';
+import type { Json } from '@/lib/database.types'; // Added import for Json type
 import { PackagePlus, Edit3, Trash2, Search, Filter, AlertTriangle } from "lucide-react";
 import { Label } from '@/components/ui/label';
 
@@ -176,7 +177,7 @@ export default function InventoryPage() {
       name: currentProductName,
       category: category as ProductCategory,
       cost_price: parsedCostPrice,
-      selling_prices: sellingPricesArray, 
+      selling_prices: sellingPricesArray as unknown as Json, // Applied the fix here
       stock_quantity: parsedStockQuantity,
       low_stock_threshold: parsedLowStockThreshold,
       description: description.trim() || undefined,
@@ -331,7 +332,7 @@ export default function InventoryPage() {
                     <TableHead className="text-right min-w-[80px] px-1 py-1.5 text-xs">Hrg. Partner</TableHead>
                     <TableHead className="text-right min-w-[90px] px-1 py-1.5 text-xs">Hrg. Jual+Pasang</TableHead>
                     <TableHead className="text-center min-w-[50px] px-1 py-1.5 text-xs">Stok</TableHead>
-                    <TableHead className="text-center min-w-[50px] px-1 py-1.5 text-xs">Stok Min.</TableHead>
+                    <TableHead className="text-center min-w-[50px] px-1 py-1.5 text-xs hidden sm:table-cell">Stok Min.</TableHead>
                     <TableHead className="text-center w-[80px] px-1 py-1.5 text-xs">Aksi</TableHead>
                   </TableRow>
                 </TableHeader>
@@ -341,7 +342,7 @@ export default function InventoryPage() {
                       <TableCell className="px-1 py-1 text-xs">
                         <Switch checked={product.isActive} onCheckedChange={() => handleToggleActive(product.id, product.isActive)} aria-label={product.isActive ? "Nonaktifkan" : "Aktifkan"}/>
                       </TableCell>
-                      <TableCell className="font-mono text-xs px-1 py-1 break-all">{product.sku}</TableCell>
+                      <TableCell className="font-mono text-xs px-1 py-1 break-words">{product.sku}</TableCell>
                       <TableCell className="font-medium px-1 py-1 break-words text-xs">
                         {product.name}
                         {!product.isActive && <Badge variant="outline" className="ml-1.5 text-xs">Nonaktif</Badge>}
@@ -358,7 +359,7 @@ export default function InventoryPage() {
                         {product.category !== 'Jasa' && product.sellingPrices.find(p => p.tierName === 'servicePackage')?.price?.toLocaleString() ? `Rp ${product.sellingPrices.find(p => p.tierName === 'servicePackage')?.price.toLocaleString()}` : '-'}
                       </TableCell>
                       <TableCell className="text-center px-1 py-1 text-xs">{product.category === 'Jasa' ? '-' : product.stockQuantity}</TableCell>
-                      <TableCell className="text-center px-1 py-1 text-xs">{product.category === 'Jasa' ? '-' : product.lowStockThreshold}</TableCell>
+                      <TableCell className="text-center px-1 py-1 text-xs hidden sm:table-cell">{product.category === 'Jasa' ? '-' : product.lowStockThreshold}</TableCell>
                       <TableCell className="text-center px-1 py-1">
                         <div className="flex justify-center items-center gap-1">
                           <Button variant="ghost" size="icon" className="h-7 w-7 hover:bg-accent" onClick={() => handleOpenFormDialog(product)} title="Edit Item"><Edit3 className="h-4 w-4" /></Button>
@@ -393,7 +394,7 @@ export default function InventoryPage() {
                  {editingProduct ? `Mengedit detail untuk ${editingProduct.name}.` : 'Masukkan detail item baru.'}
               </DialogDescription>
             </DialogHeader>
-            <div className="flex-grow overflow-y-auto pr-3 text-sm space-y-1 sm:space-y-3 py-2">
+            <div className="flex-grow overflow-y-auto pr-3 text-sm space-y-1 sm:space-y-2 py-2">
               <div className="grid grid-cols-1 sm:grid-cols-4 items-center gap-x-4 gap-y-1 sm:gap-y-2"><Label htmlFor="sku" className="col-span-1 text-left sm:text-right sm:col-span-1 sm:pr-3">SKU<span className="text-destructive">*</span></Label><Input id="sku" value={sku} onChange={(e) => setSku(e.target.value.toUpperCase())} className="col-span-1 sm:col-span-3" placeholder="Contoh: SKU-PRD-001" disabled={!!editingProduct} /></div>
               <div className="grid grid-cols-1 sm:grid-cols-4 items-center gap-x-4 gap-y-1 sm:gap-y-2"><Label htmlFor="productName" className="col-span-1 text-left sm:text-right sm:col-span-1 sm:pr-3">Nama Item<span className="text-destructive">*</span></Label><Input id="productName" value={productName} onChange={(e) => setProductName(e.target.value)} className="col-span-1 sm:col-span-3" placeholder="Nama lengkap produk atau jasa" /></div>
               <div className="grid grid-cols-1 sm:grid-cols-4 items-center gap-x-4 gap-y-1 sm:gap-y-2">
@@ -429,3 +430,4 @@ export default function InventoryPage() {
     </div>
   );
 }
+
