@@ -119,8 +119,7 @@ export default function PartnerSalesPage() {
   }, [toast]);
 
   React.useEffect(() => { const results = inventoryProducts.filter(product => product.name.toLowerCase().includes(searchTerm.toLowerCase()) || product.sku.toLowerCase().includes(searchTerm.toLowerCase())); setFilteredProducts(results); }, [searchTerm, inventoryProducts]);
-  React.useEffect(() => { if (isCameraOpen) { const getCameraPermission = async () => { try { const mediaStream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: "environment" } }); setHasCameraPermission(true); setStream(mediaStream); if (videoRef.current) videoRef.current.srcObject = mediaStream; } catch (error) { setHasCameraPermission(false); toast({ variant: 'destructive', title: 'Akses Kamera Ditolak' }); setIsCameraOpen(false); } }; getCameraPermission(); } else { if (stream) stream.getTracks().forEach(track => track.stop()); if (videoRef.current) videoRef.current.srcObject = null; } return () => { if (stream) stream.getTracks().forEach(track => track.stop()); }; }, [isCameraOpen, toast, stream]);
-
+  
   const handleAddToCart = React.useCallback((product: Product) => {
     const partnerPriceInfo = product.sellingPrices.find(p => p.tierName === 'partner');
     if (!partnerPriceInfo) {
@@ -133,15 +132,8 @@ export default function PartnerSalesPage() {
       if (existingItem) { if (product.category === 'Jasa' || existingItem.quantity < product.stockQuantity) { return prevCart.map(item => item.productId === product.id ? { ...item, quantity: item.quantity + 1, totalPrice: (item.quantity + 1) * item.unitPrice } : item); } else { toast({ variant: "destructive", title: "Stok Tdk Cukup" }); return prevCart; } } else { if (product.category === 'Jasa' || 1 <= product.stockQuantity) { return [...prevCart, { productId: product.id, productName: product.name, quantity: 1, unitPrice: price, totalPrice: price, category: product.category }]; } else { toast({ variant: "destructive", title: "Stok Habis" }); return prevCart; } }
     });
     toast({ title: "Ditambahkan (Partner)", description: `${product.name} ditambahkan.` });
-  }, [toast, setCart]);
+  }, [toast, setCart, inventoryProducts]); // Added inventoryProducts dependency
 
-  const handleUpdateQuantity = (productId: string, newQuantity: number) => { const productInCart = inventoryProducts.find(p => p.id === productId); if (!productInCart) return; const cartItem = cart.find(item => item.productId === productId); if (!cartItem) return; if (newQuantity <= 0) { handleRemoveFromCart(productId); return; } if (productInCart.category !== 'Jasa' && newQuantity > productInCart.stockQuantity) { toast({ variant: "destructive", title: "Stok Tidak Cukup" }); setCart(prevCart => prevCart.map(item => item.productId === productId ? { ...item, quantity: productInCart.stockQuantity, totalPrice: productInCart.stockQuantity * item.unitPrice } : item)); return; } setCart(prevCart => prevCart.map(item => item.productId === productId ? { ...item, quantity: newQuantity, totalPrice: newQuantity * item.unitPrice } : item)); };
-  const handleRemoveFromCart = (productId: string) => { setCart(prevCart => prevCart.filter(item => item.productId !== productId)); toast({ title: "Dihapus dari Keranjang" }); };
-  const calculateSubtotal = React.useCallback(() => cart.reduce((total, item) => total + item.totalPrice, 0), [cart]);
-  const parsedDiscount = React.useMemo(() => { const discount = parseFloat(discountAmount); return isNaN(discount) || discount < 0 ? 0 : discount; }, [discountAmount]);
-  const calculateFinalTotal = React.useCallback(() => { const subtotal = calculateSubtotal(); const actualDiscount = Math.min(parsedDiscount, subtotal); return Math.max(0, subtotal - actualDiscount); }, [calculateSubtotal, parsedDiscount]);
-  const openPaymentDialog = () => { if (cart.length === 0) { toast({ variant: "destructive", title: "Keranjang Kosong" }); return; } setCashReceived(""); setChangeCalculated(0); setPaymentMethodTab('cash'); setIsPaymentDialogOpen(true); };
-  
   const handleBarcodeScanned = React.useCallback((barcode: string) => { 
     const product = inventoryProducts.find(p => p.sku.toLowerCase() === barcode.toLowerCase()); 
     if (product) { 
@@ -153,7 +145,39 @@ export default function PartnerSalesPage() {
     } 
   }, [inventoryProducts, handleAddToCart, toast, setSearchTerm, setIsCameraOpen]);
 
-  React.useEffect(() => { if (isCameraOpen && searchTerm.toUpperCase().startsWith("BARCODE")) { handleBarcodeScanned(searchTerm.toUpperCase()); } }, [searchTerm, isCameraOpen, handleBarcodeScanned]);
+  React.useEffect(() => { 
+    if (isCameraOpen) { 
+      const getCameraPermission = async () => { 
+        try { 
+          const mediaStream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: "environment" } }); 
+          setHasCameraPermission(true); 
+          setStream(mediaStream); 
+          if (videoRef.current) videoRef.current.srcObject = mediaStream; 
+        } catch (error) { 
+          setHasCameraPermission(false); 
+          toast({ variant: 'destructive', title: 'Akses Kamera Ditolak' }); 
+          setIsCameraOpen(false); 
+        } 
+      }; 
+      getCameraPermission(); 
+    } else { 
+      if (stream) stream.getTracks().forEach(track => track.stop()); 
+      if (videoRef.current) videoRef.current.srcObject = null; 
+    } 
+    // Barcode scan logic (simulated)
+    if (isCameraOpen && searchTerm.toUpperCase().startsWith("BARCODE")) { 
+      handleBarcodeScanned(searchTerm.toUpperCase()); 
+    }
+    return () => { if (stream) stream.getTracks().forEach(track => track.stop()); }; 
+  }, [isCameraOpen, toast, stream, searchTerm, handleBarcodeScanned]); // Added searchTerm and handleBarcodeScanned
+
+  const handleUpdateQuantity = (productId: string, newQuantity: number) => { const productInCart = inventoryProducts.find(p => p.id === productId); if (!productInCart) return; const cartItem = cart.find(item => item.productId === productId); if (!cartItem) return; if (newQuantity <= 0) { handleRemoveFromCart(productId); return; } if (productInCart.category !== 'Jasa' && newQuantity > productInCart.stockQuantity) { toast({ variant: "destructive", title: "Stok Tidak Cukup" }); setCart(prevCart => prevCart.map(item => item.productId === productId ? { ...item, quantity: productInCart.stockQuantity, totalPrice: productInCart.stockQuantity * item.unitPrice } : item)); return; } setCart(prevCart => prevCart.map(item => item.productId === productId ? { ...item, quantity: newQuantity, totalPrice: newQuantity * item.unitPrice } : item)); };
+  const handleRemoveFromCart = (productId: string) => { setCart(prevCart => prevCart.filter(item => item.productId !== productId)); toast({ title: "Dihapus dari Keranjang" }); };
+  const calculateSubtotal = React.useCallback(() => cart.reduce((total, item) => total + item.totalPrice, 0), [cart]);
+  const parsedDiscount = React.useMemo(() => { const discount = parseFloat(discountAmount); return isNaN(discount) || discount < 0 ? 0 : discount; }, [discountAmount]);
+  const calculateFinalTotal = React.useCallback(() => { const subtotal = calculateSubtotal(); const actualDiscount = Math.min(parsedDiscount, subtotal); return Math.max(0, subtotal - actualDiscount); }, [calculateSubtotal, parsedDiscount]);
+  const openPaymentDialog = () => { if (cart.length === 0) { toast({ variant: "destructive", title: "Keranjang Kosong" }); return; } setCashReceived(""); setChangeCalculated(0); setPaymentMethodTab('cash'); setIsPaymentDialogOpen(true); };
+  
   React.useEffect(() => { const finalTotal = calculateFinalTotal(); const received = parseFloat(cashReceived) || 0; if (paymentMethodTab === 'cash' && received >= finalTotal) { setChangeCalculated(received - finalTotal); } else if (paymentMethodTab === 'cash') { setChangeCalculated(0); } }, [cashReceived, paymentMethodTab, calculateFinalTotal]);
   const handlePresetCash = (amount: number) => { setCashReceived(String(amount)); };
 
@@ -270,3 +294,4 @@ export default function PartnerSalesPage() {
     </div>
   );
 }
+

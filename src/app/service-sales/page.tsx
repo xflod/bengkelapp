@@ -122,7 +122,6 @@ export default function ServiceSalesPage() {
   }, [toast]);
 
   React.useEffect(() => { const results = inventoryProducts.filter(product => product.name.toLowerCase().includes(searchTerm.toLowerCase()) || product.sku.toLowerCase().includes(searchTerm.toLowerCase())); setFilteredProducts(results); }, [searchTerm, inventoryProducts]);
-  React.useEffect(() => { if (isCameraOpen) { const getCameraPermission = async () => { try { const mediaStream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: "environment" } }); setHasCameraPermission(true); setStream(mediaStream); if (videoRef.current) videoRef.current.srcObject = mediaStream; } catch (error) { setHasCameraPermission(false); toast({ variant: 'destructive', title: 'Akses Kamera Ditolak' }); setIsCameraOpen(false); } }; getCameraPermission(); } else { if (stream) stream.getTracks().forEach(track => track.stop()); if (videoRef.current) videoRef.current.srcObject = null; } return () => { if (stream) stream.getTracks().forEach(track => track.stop()); }; }, [isCameraOpen, toast, stream]);
   
   const getApplicablePriceInfo = (product: Product): { price: number; tier: PriceTierName } | null => {
     const servicePackagePriceInfo = product.sellingPrices.find(p => p.tierName === 'servicePackage');
@@ -165,15 +164,8 @@ export default function ServiceSalesPage() {
         } 
     }); 
     toast({ title: "Ditambahkan ke Keranjang", description: `${product.name}${tier === 'servicePackage' ? ' (Paket Servis)' : ''} telah ditambahkan.` }); 
-  }, [toast, setCart]);
+  }, [toast, inventoryProducts]); // Added inventoryProducts
 
-  const handleUpdateQuantity = (productId: string, newQuantity: number) => { const productInCart = inventoryProducts.find(p => p.id === productId); if (!productInCart) return; const cartItem = cart.find(item => item.productId === productId); if (!cartItem) return; if (newQuantity <= 0) { handleRemoveFromCart(productId); return; } if (productInCart.category !== 'Jasa' && newQuantity > productInCart.stockQuantity) { toast({ variant: "destructive", title: "Stok Tidak Cukup", description: `Stok ${productInCart.name} hanya tersisa ${productInCart.stockQuantity}.` }); setCart(prevCart => prevCart.map(item => item.productId === productId ? { ...item, quantity: productInCart.stockQuantity, totalPrice: productInCart.stockQuantity * item.unitPrice } : item)); return; } setCart(prevCart => prevCart.map(item => item.productId === productId ? { ...item, quantity: newQuantity, totalPrice: newQuantity * item.unitPrice } : item)); };
-  const handleRemoveFromCart = (productId: string) => { setCart(prevCart => prevCart.filter(item => item.productId !== productId)); toast({ title: "Dihapus dari Keranjang" }); };
-  const calculateSubtotal = React.useCallback(() => cart.reduce((total, item) => total + item.totalPrice, 0), [cart]);
-  const parsedDiscount = React.useMemo(() => { const discount = parseFloat(discountAmount); return isNaN(discount) || discount < 0 ? 0 : discount; }, [discountAmount]);
-  const calculateFinalTotal = React.useCallback(() => { const subtotal = calculateSubtotal(); const actualDiscount = Math.min(parsedDiscount, subtotal); return Math.max(0, subtotal - actualDiscount); }, [calculateSubtotal, parsedDiscount]);
-  const openPaymentDialog = () => { if (cart.length === 0) { toast({ variant: "destructive", title: "Keranjang Kosong" }); return; } setCashReceived(""); setChangeCalculated(0); setPaymentMethodTab('cash'); setIsPaymentDialogOpen(true); };
-  
   const handleBarcodeScanned = React.useCallback((barcode: string) => { 
     const product = inventoryProducts.find(p => p.sku.toLowerCase() === barcode.toLowerCase()); 
     if (product) { 
@@ -185,7 +177,40 @@ export default function ServiceSalesPage() {
     } 
   }, [inventoryProducts, handleAddToCart, toast, setSearchTerm, setIsCameraOpen]);
 
-  React.useEffect(() => { if (isCameraOpen && searchTerm.toUpperCase().startsWith("BARCODE")) { handleBarcodeScanned(searchTerm.toUpperCase()); } }, [searchTerm, isCameraOpen, handleBarcodeScanned]);
+  React.useEffect(() => { 
+    if (isCameraOpen) { 
+      const getCameraPermission = async () => { 
+        try { 
+          const mediaStream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: "environment" } }); 
+          setHasCameraPermission(true); 
+          setStream(mediaStream); 
+          if (videoRef.current) videoRef.current.srcObject = mediaStream; 
+        } catch (error) { 
+          setHasCameraPermission(false); 
+          toast({ variant: 'destructive', title: 'Akses Kamera Ditolak' }); 
+          setIsCameraOpen(false); 
+        } 
+      }; 
+      getCameraPermission(); 
+    } else { 
+      if (stream) stream.getTracks().forEach(track => track.stop()); 
+      if (videoRef.current) videoRef.current.srcObject = null; 
+    } 
+    // Barcode scan logic (simulated)
+    if (isCameraOpen && searchTerm.toUpperCase().startsWith("BARCODE")) { 
+      handleBarcodeScanned(searchTerm.toUpperCase()); 
+    }
+    return () => { if (stream) stream.getTracks().forEach(track => track.stop()); }; 
+  }, [isCameraOpen, toast, stream, searchTerm, handleBarcodeScanned]); // Added searchTerm and handleBarcodeScanned
+
+
+  const handleUpdateQuantity = (productId: string, newQuantity: number) => { const productInCart = inventoryProducts.find(p => p.id === productId); if (!productInCart) return; const cartItem = cart.find(item => item.productId === productId); if (!cartItem) return; if (newQuantity <= 0) { handleRemoveFromCart(productId); return; } if (productInCart.category !== 'Jasa' && newQuantity > productInCart.stockQuantity) { toast({ variant: "destructive", title: "Stok Tidak Cukup", description: `Stok ${productInCart.name} hanya tersisa ${productInCart.stockQuantity}.` }); setCart(prevCart => prevCart.map(item => item.productId === productId ? { ...item, quantity: productInCart.stockQuantity, totalPrice: productInCart.stockQuantity * item.unitPrice } : item)); return; } setCart(prevCart => prevCart.map(item => item.productId === productId ? { ...item, quantity: newQuantity, totalPrice: newQuantity * item.unitPrice } : item)); };
+  const handleRemoveFromCart = (productId: string) => { setCart(prevCart => prevCart.filter(item => item.productId !== productId)); toast({ title: "Dihapus dari Keranjang" }); };
+  const calculateSubtotal = React.useCallback(() => cart.reduce((total, item) => total + item.totalPrice, 0), [cart]);
+  const parsedDiscount = React.useMemo(() => { const discount = parseFloat(discountAmount); return isNaN(discount) || discount < 0 ? 0 : discount; }, [discountAmount]);
+  const calculateFinalTotal = React.useCallback(() => { const subtotal = calculateSubtotal(); const actualDiscount = Math.min(parsedDiscount, subtotal); return Math.max(0, subtotal - actualDiscount); }, [calculateSubtotal, parsedDiscount]);
+  const openPaymentDialog = () => { if (cart.length === 0) { toast({ variant: "destructive", title: "Keranjang Kosong" }); return; } setCashReceived(""); setChangeCalculated(0); setPaymentMethodTab('cash'); setIsPaymentDialogOpen(true); };
+  
   React.useEffect(() => { const finalTotal = calculateFinalTotal(); const received = parseFloat(cashReceived) || 0; if (paymentMethodTab === 'cash' && received >= finalTotal) { setChangeCalculated(received - finalTotal); } else if (paymentMethodTab === 'cash') { setChangeCalculated(0); } }, [cashReceived, paymentMethodTab, calculateFinalTotal]);
   const handlePresetCash = (amount: number) => { setCashReceived(String(amount)); };
 
@@ -249,7 +274,7 @@ export default function ServiceSalesPage() {
   const confirmCashPayment = () => { const finalTotal = calculateFinalTotal(); const received = parseFloat(cashReceived) || 0; if (received < finalTotal) { toast({ variant: "destructive", title: "Uang Kurang" }); return; } completeTransaction("Tunai", `Kembalian: Rp ${changeCalculated.toLocaleString()}`); };
   const confirmTransferPayment = () => { completeTransaction("Transfer", "Menunggu konfirmasi transfer."); };
   const handleDownloadReceipt = () => { if (receiptRef.current && HTML2Canvas) { HTML2Canvas.default(receiptRef.current, { scale: 2, backgroundColor: '#ffffff' }).then(canvas => { const image = canvas.toDataURL("image/png", 0.8); const link = document.createElement('a'); link.href = image; link.download = `nota_servis_${receiptDetails?.transactionId || 'transaksi'}.png`; document.body.appendChild(link); link.click(); document.body.removeChild(link); toast({ title: "Nota Servis Diunduh" }); }).catch(err => { toast({ variant: "destructive", title: "Gagal Unduh Nota Servis" }); }); } };
-  const handleShareToWhatsApp = () => { if (!receiptDetails) return; let message = `*${receiptDetails.shopName || 'Bengkel Anda'}*\n`; if(receiptDetails.shopAddress) message += `${receiptDetails.shopAddress}\n`; if(receiptDetails.shopWhatsapp) message += `WA: ${receiptDetails.shopWhatsapp}\n`; message += `\n*Nota Jasa & Servis*\nID: ${receiptDetails.transactionId}\nTgl: ${receiptDetails.date}\n`; if (receiptDetails.customerName) message += `Plgn: ${receiptDetails.customerName}\n`; message += `------------------------------------\n`; receiptDetails.items.forEach(item => { message += `${item.productName}${item.priceTierUsed === 'servicePackage' ? ' (Paket)' : ''} (x${item.quantity})\n  Rp ${item.unitPrice.toLocaleString()} x ${item.quantity} = Rp ${item.totalPrice.toLocaleString()}\n`; }); message += `------------------------------------\nSubtotal: Rp ${receiptDetails.subtotal.toLocaleString()}\n`; if (receiptDetails.discount > 0) message += `Diskon: Rp ${receiptDetails.discount.toLocaleString()}\n`; message += `*Total Bayar: Rp ${receiptDetails.finalTotal.toLocaleString()}*\nMetode: ${receiptDetails.paymentMethod}\n`; if (receiptDetails.paymentMethod === 'Tunai') { message += `Tunai: Rp ${receiptDetails.cashReceived?.toLocaleString() || 0}\nKembali: Rp ${receiptDetails.changeCalculated?.toLocaleString() || 0}\n`; } if (receiptDetails.serviceNotes) { message += `------------------------------------\n*Catatan Servis Untuk Anda:*\n${receiptDetails.serviceNotes}\n`; } message += `------------------------------------\n${shopSettings?.receipt_footer_text || 'Terima kasih atas kunjungan Anda!'}\n\n_Nota ini juga dapat diunduh._`; const whatsappUrl = `https://api.whatsapp.com/send?text=${encodeURIComponent(message)}`; window.open(whatsappUrl, '_blank'); toast({ title: "Bagikan ke WhatsApp" }); };
+  const handleShareToWhatsApp = () => { if (!receiptDetails) return; let message = `*${receiptDetails.shopName || 'Bengkel Anda'}*\n`; if(receiptDetails.shopAddress) message += `${receiptDetails.shopAddress}\n`; if(receiptDetails.shopWhatsapp) message += `WA: ${receiptDetails.shopWhatsapp}\n`; message += `\n*Nota Jasa & Servis*\nID: ${receiptDetails.transactionId}\nTgl: ${receiptDetails.date}\n`; if (receiptDetails.customerName) message += `Plgn: ${receiptDetails.customerName}\n`; message += `------------------------------------\n`; receiptDetails.items.forEach(item => { message += `${item.productName}${item.priceTierUsed === 'servicePackage' ? ' (Paket)' : ''} (x${item.quantity})\n  Rp ${item.unitPrice.toLocaleString()} x ${item.quantity} = Rp ${item.totalPrice.toLocaleString()}\n`; }); message += `------------------------------------\nSubtotal: Rp ${receiptDetails.subtotal.toLocaleString()}\n`; if (receiptDetails.discount > 0) message += `Diskon: Rp ${receiptDetails.discount.toLocaleString()}\n`; message += `*Total Bayar: Rp ${receiptDetails.finalTotal.toLocaleString()}*\nMetode: ${receiptDetails.paymentMethod}\n`; if (receiptDetails.paymentMethod === 'Tunai') { message += `Tunai: Rp ${receiptDetails.cashReceived?.toLocaleString() || 0}\nKembali: Rp ${receiptDetails.changeCalculated?.toLocaleString() || 0}\n`; } if (receiptDetails.serviceNotes) { message += `------------------------------------\n*Catatan Servis Untuk Anda:*\n${receiptDetails.serviceNotes}\n`; } message += `------------------------------------\n${shopSettings?.receipt_footer_text || 'Terima Kasih atas kunjungan Anda!'}\n\n_Nota ini juga dapat diunduh._`; const whatsappUrl = `https://api.whatsapp.com/send?text=${encodeURIComponent(message)}`; window.open(whatsappUrl, '_blank'); toast({ title: "Bagikan ke WhatsApp" }); };
 
   const subtotalForCart = calculateSubtotal();
   const finalTotalForPayment = calculateFinalTotal();
@@ -302,3 +327,4 @@ export default function ServiceSalesPage() {
     </div>
   );
 }
+

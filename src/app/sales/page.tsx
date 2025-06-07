@@ -134,27 +134,6 @@ export default function SalesPage() {
     setFilteredProducts(results);
   }, [searchTerm, inventoryProducts]);
 
-  React.useEffect(() => { 
-    if (isCameraOpen) {
-      const getCameraPermission = async () => {
-        try {
-          const mediaStream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: "environment" } });
-          setHasCameraPermission(true); setStream(mediaStream);
-          if (videoRef.current) videoRef.current.srcObject = mediaStream;
-        } catch (error) {
-          setHasCameraPermission(false);
-          toast({ variant: 'destructive', title: 'Akses Kamera Ditolak' });
-          setIsCameraOpen(false);
-        }
-      };
-      getCameraPermission();
-    } else {
-      if (stream) stream.getTracks().forEach(track => track.stop());
-      if (videoRef.current) videoRef.current.srcObject = null;
-    }
-    return () => { if (stream) stream.getTracks().forEach(track => track.stop()); };
-  }, [isCameraOpen, toast, stream]);
-
   const handleAddToCart = React.useCallback((product: Product) => {
     const defaultPriceInfo = product.sellingPrices.find(p => p.tierName === 'default');
     if (!defaultPriceInfo) {
@@ -181,8 +160,44 @@ export default function SalesPage() {
       }
     });
     toast({ title: "Ditambahkan ke Keranjang", description: `${product.name} telah ditambahkan.` });
-  }, [toast, setCart]);
+  }, [toast, inventoryProducts]); // Added inventoryProducts
   
+  const handleBarcodeScanned = React.useCallback((barcode: string) => { 
+    const product = inventoryProducts.find(p => p.sku.toLowerCase() === barcode.toLowerCase()); 
+    if (product) { 
+      handleAddToCart(product); 
+      setSearchTerm(""); 
+      setIsCameraOpen(false); 
+    } else { 
+      toast({ variant: "destructive", title: "Produk Tidak Ditemukan" }); 
+    } 
+  }, [inventoryProducts, handleAddToCart, toast, setSearchTerm, setIsCameraOpen]);
+
+  React.useEffect(() => { 
+    if (isCameraOpen) {
+      const getCameraPermission = async () => {
+        try {
+          const mediaStream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: "environment" } });
+          setHasCameraPermission(true); setStream(mediaStream);
+          if (videoRef.current) videoRef.current.srcObject = mediaStream;
+        } catch (error) {
+          setHasCameraPermission(false);
+          toast({ variant: 'destructive', title: 'Akses Kamera Ditolak' });
+          setIsCameraOpen(false);
+        }
+      };
+      getCameraPermission();
+    } else {
+      if (stream) stream.getTracks().forEach(track => track.stop());
+      if (videoRef.current) videoRef.current.srcObject = null;
+    }
+    // Barcode scan logic (simulated)
+    if (isCameraOpen && searchTerm.toUpperCase().startsWith("BARCODE")) {
+      handleBarcodeScanned(searchTerm.toUpperCase());
+    }
+    return () => { if (stream) stream.getTracks().forEach(track => track.stop()); };
+  }, [isCameraOpen, toast, stream, searchTerm, handleBarcodeScanned]); // Added searchTerm and handleBarcodeScanned
+
   const handleUpdateQuantity = (productId: string, newQuantity: number) => {
     const productInCart = inventoryProducts.find(p => p.id === productId);
     if (!productInCart) return;
@@ -202,18 +217,6 @@ export default function SalesPage() {
   const calculateFinalTotal = React.useCallback(() => { const subtotal = calculateSubtotal(); const actualDiscount = Math.min(parsedDiscount, subtotal); return Math.max(0, subtotal - actualDiscount); }, [calculateSubtotal, parsedDiscount]);
   const openPaymentDialog = () => { if (cart.length === 0) { toast({ variant: "destructive", title: "Keranjang Kosong" }); return; } setCashReceived(""); setChangeCalculated(0); setPaymentMethodTab('cash'); setIsPaymentDialogOpen(true); };
   
-  const handleBarcodeScanned = React.useCallback((barcode: string) => { 
-    const product = inventoryProducts.find(p => p.sku.toLowerCase() === barcode.toLowerCase()); 
-    if (product) { 
-      handleAddToCart(product); 
-      setSearchTerm(""); 
-      setIsCameraOpen(false); 
-    } else { 
-      toast({ variant: "destructive", title: "Produk Tidak Ditemukan" }); 
-    } 
-  }, [inventoryProducts, handleAddToCart, toast, setSearchTerm, setIsCameraOpen]);
-
-  React.useEffect(() => { if (isCameraOpen && searchTerm.toUpperCase().startsWith("BARCODE")) { handleBarcodeScanned(searchTerm.toUpperCase()); } }, [searchTerm, isCameraOpen, handleBarcodeScanned]);
   React.useEffect(() => { const finalTotal = calculateFinalTotal(); const received = parseFloat(cashReceived) || 0; if (paymentMethodTab === 'cash' && received >= finalTotal) { setChangeCalculated(received - finalTotal); } else if (paymentMethodTab === 'cash') { setChangeCalculated(0); } }, [cashReceived, paymentMethodTab, calculateFinalTotal]);
   const handlePresetCash = (amount: number) => { setCashReceived(String(amount)); };
 
@@ -402,3 +405,4 @@ export default function SalesPage() {
     </div>
   );
 }
+

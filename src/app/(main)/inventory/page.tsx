@@ -390,7 +390,7 @@ export default function InventoryPage() {
                 {editingProduct ? 'Edit Item Inventaris' : 'Tambah Item Baru ke Inventaris'}
               </DialogTitle>
               <DialogDescription>
-                {editingProduct ? `Mengedit detail untuk ${editingProduct.name}.` : 'Masukkan detail item baru.'}
+                 {editingProduct ? `Mengedit detail untuk ${editingProduct.name}.` : 'Masukkan detail item baru.'}
               </DialogDescription>
             </DialogHeader>
             <div className="grid gap-y-3 gap-x-4 py-2 flex-grow overflow-y-auto pr-3 text-sm">
