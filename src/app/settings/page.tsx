@@ -6,12 +6,15 @@ import { PageHeader } from "@/components/shared/PageHeader";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from "@/components/ui/card"; // Ensuring CardFooter is imported
+import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from "@/components/ui/card";
 import { Label } from "@/components/ui/label";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useToast } from "@/hooks/use-toast";
 import type { ShopSettings } from "@/lib/types";
 import { supabase } from '@/lib/supabase';
-import { Save } from "lucide-react";
+import { Save, Palette } from "lucide-react";
+
+type ThemeSetting = 'default' | 'native';
 
 export default function SettingsPage() {
   const { toast } = useToast();
@@ -23,8 +26,22 @@ export default function SettingsPage() {
   const [shopAddress, setShopAddress] = useState('');
   const [receiptFooter, setReceiptFooter] = useState('');
   const [shopSlogan, setShopSlogan] = useState('');
+  const [selectedTheme, setSelectedTheme] = useState<ThemeSetting>('default');
 
   const settingsId = 1; // Fixed ID for the single settings row
+
+  useEffect(() => {
+    // Load theme from localStorage
+    const storedTheme = localStorage.getItem('app-theme') as ThemeSetting | null;
+    if (storedTheme) {
+      setSelectedTheme(storedTheme);
+      if (storedTheme === 'native') {
+        document.documentElement.classList.add('theme-native');
+      } else {
+        document.documentElement.classList.remove('theme-native');
+      }
+    }
+  }, []);
 
   const fetchSettings = useCallback(async () => {
     setIsLoading(true);
@@ -75,6 +92,18 @@ export default function SettingsPage() {
     }
     setIsSaving(false);
   };
+  
+  const handleThemeChange = (theme: ThemeSetting) => {
+    setSelectedTheme(theme);
+    localStorage.setItem('app-theme', theme);
+    if (theme === 'native') {
+      document.documentElement.classList.add('theme-native');
+    } else {
+      document.documentElement.classList.remove('theme-native');
+    }
+    toast({ title: "Tema Diubah", description: `Tema ${theme === 'native' ? 'Native (Android Style)' : 'Standar'} diterapkan.` });
+  };
+
 
   if (isLoading) {
     return <div className="flex justify-center items-center h-screen"><p>Memuat pengaturan bengkel...</p></div>;
@@ -83,8 +112,8 @@ export default function SettingsPage() {
   return (
     <div className="space-y-6">
       <PageHeader
-        title="Pengaturan Bengkel"
-        description="Kelola informasi dasar, kontak, dan tampilan nota bengkel Anda."
+        title="Pengaturan Bengkel & Tampilan"
+        description="Kelola informasi dasar, kontak, tampilan nota, dan tema aplikasi."
       />
       <Card className="shadow-md">
         <CardHeader>
@@ -116,9 +145,36 @@ export default function SettingsPage() {
         <CardFooter className="border-t pt-6">
           <Button onClick={handleSaveSettings} disabled={isSaving} className="bg-primary hover:bg-primary/90 text-primary-foreground">
             <Save className="mr-2 h-4 w-4" />
-            {isSaving ? "Menyimpan..." : "Simpan Pengaturan"}
+            {isSaving ? "Menyimpan Info Bengkel..." : "Simpan Info Bengkel"}
           </Button>
         </CardFooter>
+      </Card>
+
+      <Card className="shadow-md">
+        <CardHeader>
+          <CardTitle>Pengaturan Tampilan</CardTitle>
+          <CardDescription>Pilih tema tampilan aplikasi.</CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <div>
+            <Label htmlFor="themeSelect" className="flex items-center">
+              <Palette className="mr-2 h-4 w-4 text-muted-foreground" />
+              Pilih Tema Aplikasi
+            </Label>
+            <Select value={selectedTheme} onValueChange={(value: ThemeSetting) => handleThemeChange(value)}>
+              <SelectTrigger id="themeSelect" className="w-full sm:w-[280px] mt-1">
+                <SelectValue placeholder="Pilih tema" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="default">Tema Standar (Biru Muda)</SelectItem>
+                <SelectItem value="native">Tema Native (Android Style)</SelectItem>
+              </SelectContent>
+            </Select>
+             <p className="text-xs text-muted-foreground mt-2">
+              Perubahan tema akan disimpan di browser Anda dan diterapkan secara otomatis.
+            </p>
+          </div>
+        </CardContent>
       </Card>
     </div>
   );

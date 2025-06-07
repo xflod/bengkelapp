@@ -5,6 +5,7 @@ import { AppShell } from '@/components/layout/AppShell';
 import { Toaster } from "@/components/ui/toaster";
 import { SidebarProvider } from "@/components/ui/sidebar";
 import { Inter } from 'next/font/google';
+import Script from 'next/script'; // Import Script
 
 const inter = Inter({
   subsets: ['latin'],
@@ -25,7 +26,25 @@ export default function RootLayout({
   return (
     <html lang="en" suppressHydrationWarning className={`${inter.variable}`}>
       <head>
-        {/* Google Font links removed, handled by next/font */}
+        {/* Script to apply theme from localStorage before page hydration */}
+        <Script id="theme-loader" strategy="beforeInteractive">
+          {`
+            (function() {
+              try {
+                const theme = localStorage.getItem('app-theme');
+                if (theme === 'native') {
+                  document.documentElement.classList.add('theme-native');
+                } else {
+                  // Default theme doesn't need a specific class, 
+                  // or remove 'theme-native' if it was somehow set by mistake
+                  document.documentElement.classList.remove('theme-native');
+                }
+              } catch (e) {
+                console.error('Failed to load theme from localStorage', e);
+              }
+            })();
+          `}
+        </Script>
       </head>
       <body className="font-body antialiased">
         <SidebarProvider>
