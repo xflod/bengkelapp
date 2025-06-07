@@ -253,7 +253,7 @@ export default function EmployeesPage() {
       
       {isFormDialogOpen && (
         <DynamicDialog open={isFormDialogOpen} onOpenChange={(open) => { setIsFormDialogOpen(open); if (!open) resetEmployeeFormFields(); }}>
-          <DynamicDialogContent className="sm:max-w-lg max-h-[90vh] flex flex-col" aria-labelledby={employeeFormDialogTitleId}>
+          <DynamicDialogContent className="sm:max-w-lg max-h-[90vh] flex flex-col" >
             <DynamicDialogHeader className="flex-shrink-0">
               <DynamicDialogTitle id={employeeFormDialogTitleId}>{editingEmployee ? 'Edit Karyawan' : 'Tambah Karyawan'}</DynamicDialogTitle>
               <DynamicDialogDescription>{editingEmployee ? `Mengedit ${editingEmployee.name}.` : 'Detail karyawan baru.'}</DynamicDialogDescription>
@@ -280,7 +280,7 @@ export default function EmployeesPage() {
 
       {isLoanMgmtDialogOpen && selectedEmployeeForLoan && (
         <DynamicDialog open={isLoanMgmtDialogOpen} onOpenChange={setIsLoanMgmtDialogOpen}>
-          <DynamicDialogContent className="sm:max-w-2xl max-h-[90vh] flex flex-col" aria-labelledby={loanMgmtDialogTitleId}>
+          <DynamicDialogContent className="sm:max-w-2xl max-h-[90vh] flex flex-col" >
             <DynamicDialogHeader><DynamicDialogTitle id={loanMgmtDialogTitleId}>Man. Pinjaman: {selectedEmployeeForLoan?.name}</DynamicDialogTitle><DynamicDialogDescription>Kelola pinjaman & cicilan.</DynamicDialogDescription></DynamicDialogHeader>
             <div className="flex-grow overflow-y-auto p-1">
               <Button onClick={() => openLoanFormDialog()} className="mb-4 bg-accent hover:bg-accent/90 text-accent-foreground"><PlusCircle className="mr-2 h-4 w-4" /> Tambah Pinjaman</Button>
@@ -297,7 +297,7 @@ export default function EmployeesPage() {
 
       {isLoanFormDialogOpen && selectedEmployeeForLoan && (
         <DynamicDialog open={isLoanFormDialogOpen} onOpenChange={setIsLoanFormDialogOpen}>
-          <DynamicDialogContent className="sm:max-w-md" aria-labelledby={loanFormDialogTitleId}>
+          <DynamicDialogContent className="sm:max-w-md" >
             <DynamicDialogHeader><DynamicDialogTitle id={loanFormDialogTitleId}>{editingLoan ? 'Edit' : 'Tambah'} Pinjaman u/ {selectedEmployeeForLoan?.name}</DynamicDialogTitle></DynamicDialogHeader>
             <div className="grid gap-4 py-4">
               <div className="grid grid-cols-4 items-center gap-4"><Label htmlFor="loanDateForm" className="text-right col-span-1">Tgl Pinjam<span className="text-destructive">*</span></Label><Popover><PopoverTrigger asChild><Button variant={"outline"} className={`col-span-3 justify-start text-left font-normal ${!loanDateState && "text-muted-foreground"}`}><CalendarIcon className="mr-2 h-4 w-4" />{loanDateState ? format(loanDateState, "PPP", { locale: localeID }) : <span>Pilih</span>}</Button></PopoverTrigger><PopoverContent className="w-auto p-0"><Calendar mode="single" selected={loanDateState} onSelect={setLoanDateState} initialFocus /></PopoverContent></Popover></div>
@@ -312,7 +312,7 @@ export default function EmployeesPage() {
 
       {isInstallmentDialogOpen && selectedLoanForInstallment && selectedEmployeeForLoan && (
         <DynamicDialog open={isInstallmentDialogOpen} onOpenChange={setIsInstallmentDialogOpen}>
-          <DynamicDialogContent className="sm:max-w-lg max-h-[90vh] flex flex-col" aria-labelledby={installmentDialogTitleId}>
+          <DynamicDialogContent className="sm:max-w-lg max-h-[90vh] flex flex-col" >
             <DynamicDialogHeader>
               <DynamicDialogTitle id={installmentDialogTitleId}>Cicilan Pinjaman - {selectedEmployeeForLoan?.name}</DynamicDialogTitle>
               <DynamicDialogDescription>Pinjaman: Rp {selectedLoanForInstallment.loan_amount.toLocaleString()} | Sisa: Rp {selectedLoanForInstallment.remaining_balance.toLocaleString()}<br/>Tgl Pinjam: {format(parseISO(selectedLoanForInstallment.loan_date), "dd MMM yyyy", { locale: localeID })}</DynamicDialogDescription>

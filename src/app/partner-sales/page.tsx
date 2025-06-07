@@ -132,7 +132,7 @@ export default function PartnerSalesPage() {
       if (existingItem) { if (product.category === 'Jasa' || existingItem.quantity < product.stockQuantity) { return prevCart.map(item => item.productId === product.id ? { ...item, quantity: item.quantity + 1, totalPrice: (item.quantity + 1) * item.unitPrice } : item); } else { toast({ variant: "destructive", title: "Stok Tdk Cukup" }); return prevCart; } } else { if (product.category === 'Jasa' || 1 <= product.stockQuantity) { return [...prevCart, { productId: product.id, productName: product.name, quantity: 1, unitPrice: price, totalPrice: price, category: product.category }]; } else { toast({ variant: "destructive", title: "Stok Habis" }); return prevCart; } }
     });
     toast({ title: "Ditambahkan (Partner)", description: `${product.name} ditambahkan.` });
-  }, [toast, setCart, inventoryProducts]); // Added inventoryProducts dependency
+  }, [toast, inventoryProducts]); // Added inventoryProducts dependency
 
   const handleBarcodeScanned = React.useCallback((barcode: string) => { 
     const product = inventoryProducts.find(p => p.sku.toLowerCase() === barcode.toLowerCase()); 
@@ -263,7 +263,7 @@ export default function PartnerSalesPage() {
       </div>
       {isPaymentDialogOpen && (
         <DynamicDialog open={isPaymentDialogOpen} onOpenChange={setIsPaymentDialogOpen}>
-          <DynamicDialogContent className="sm:max-w-md" aria-labelledby={paymentDialogTitleId}>
+          <DynamicDialogContent className="sm:max-w-md" >
             <DynamicDialogHeader><DynamicDialogTitle id={paymentDialogTitleId}>Pembayaran Partner</DynamicDialogTitle><DynamicDialogDescription>Subtotal: <span className="font-semibold">Rp {subtotalForCart.toLocaleString()}</span>{parsedDiscount > 0 && (<><br/>Diskon: <span className="font-semibold text-green-600">- Rp {actualDiscountApplied.toLocaleString()}</span></>)}<br/>Total: <span className="font-bold text-lg">Rp {finalTotalForPayment.toLocaleString()}</span></DynamicDialogDescription></DynamicDialogHeader>
             <div className="space-y-2 pt-2"><Label htmlFor="discountAmountPartner">Diskon (Rp)</Label><div className="relative"><Percent className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" /><Input id="discountAmountPartner" type="number" value={discountAmount} onChange={(e) => { const v = e.target.value; const nV = parseFloat(v); if (v === "" || (nV >= 0 && nV <= subtotalForCart) ) { setDiscountAmount(v); } else if (nV > subtotalForCart) { setDiscountAmount(subtotalForCart.toString()); toast({title: "Info", description: "Diskon maks. subtotal."}); } }} placeholder="e.g. 5000" className="pl-10 text-base w-full"/></div></div>
             <Tabs value={paymentMethodTab} onValueChange={(value) => setPaymentMethodTab(value as 'cash' | 'transfer')} className="w-full pt-2">
@@ -277,7 +277,7 @@ export default function PartnerSalesPage() {
       )}
       {isReceiptModalOpen && receiptDetails && (
         <DynamicDialog open={isReceiptModalOpen} onOpenChange={setIsReceiptModalOpen}>
-          <DynamicDialogContent className="sm:max-w-sm w-[90vw]" aria-labelledby={receiptDialogTitleId}>
+          <DynamicDialogContent className="sm:max-w-sm w-[90vw]" >
             <DynamicDialogHeader><DynamicDialogTitle id={receiptDialogTitleId}>{receiptDetails?.receiptTitle || "Nota Transaksi"}</DynamicDialogTitle><DynamicDialogDescription>ID: {receiptDetails?.transactionId}</DynamicDialogDescription></DynamicDialogHeader>
             <div ref={receiptRef} id="receipt-content" className="p-4 border rounded-md bg-white text-black text-xs">
               <div className="text-center mb-2">

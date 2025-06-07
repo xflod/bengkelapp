@@ -383,7 +383,7 @@ export default function InventoryPage() {
         <Dialog open={isFormDialogOpen} onOpenChange={(open) => { setIsFormDialogOpen(open); if (!open) resetFormFields(); }}>
           <DialogContent 
             className="sm:max-w-lg max-h-[90vh] flex flex-col"
-            aria-labelledby={inventoryFormDialogTitleId}
+            
           >
             <DialogHeader className="flex-shrink-0">
               <DialogTitle id={inventoryFormDialogTitleId}>

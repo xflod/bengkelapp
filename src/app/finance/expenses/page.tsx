@@ -115,7 +115,7 @@ export default function ExpensesPage() {
       </Card>
       {isFormOpen && (
         <DynamicDialog open={isFormOpen} onOpenChange={(open) => { setIsFormOpen(open); if (!open) resetFormFields(); }}>
-          <DynamicDialogContent className="sm:max-w-lg max-h-[90vh] flex flex-col" aria-labelledby={expenseFormDialogTitleId}>
+          <DynamicDialogContent className="sm:max-w-lg max-h-[90vh] flex flex-col" >
             <DynamicDialogHeader className="flex-shrink-0">
               <DynamicDialogTitle id={expenseFormDialogTitleId}>{editingExpense ? 'Edit Pengeluaran' : 'Tambah Pengeluaran'}</DynamicDialogTitle>
             </DynamicDialogHeader>

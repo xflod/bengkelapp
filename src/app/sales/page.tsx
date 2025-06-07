@@ -356,7 +356,7 @@ export default function SalesPage() {
       </div>
       {isPaymentDialogOpen && (
         <DynamicDialog open={isPaymentDialogOpen} onOpenChange={setIsPaymentDialogOpen}>
-          <DynamicDialogContent className="sm:max-w-md" aria-labelledby={paymentDialogTitleId}>
+          <DynamicDialogContent className="sm:max-w-md" >
             <DynamicDialogHeader><DynamicDialogTitle id={paymentDialogTitleId}>Proses Pembayaran</DynamicDialogTitle><DynamicDialogDescription>Subtotal: <span className="font-semibold whitespace-nowrap">Rp {subtotalForCart.toLocaleString()}</span>{parsedDiscount > 0 && (<><br/>Diskon: <span className="font-semibold whitespace-nowrap text-green-600">- Rp {actualDiscountApplied.toLocaleString()}</span></>)}<br/>Total Belanja: <span className="font-bold whitespace-nowrap text-lg">Rp {finalTotalForPayment.toLocaleString()}</span></DynamicDialogDescription></DynamicDialogHeader>
             <div className="space-y-2 pt-2"><Label htmlFor="discountAmount">Diskon (Rp)</Label><div className="relative"><Percent className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" /><Input id="discountAmount" type="number" value={discountAmount} onChange={(e) => { const v = e.target.value; const nV = parseFloat(v); if (v === "" || (nV >= 0 && nV <= subtotalForCart) ) { setDiscountAmount(v); } else if (nV > subtotalForCart) { setDiscountAmount(subtotalForCart.toString()); toast({title: "Info", description: "Diskon maks. subtotal."}); } }} placeholder="e.g. 5000" className="pl-10 text-base w-full"/></div></div>
             <Tabs value={paymentMethodTab} onValueChange={(value) => setPaymentMethodTab(value as 'cash' | 'transfer')} className="w-full pt-2">
@@ -370,7 +370,7 @@ export default function SalesPage() {
       )}
       {isReceiptModalOpen && receiptDetails && (
         <DynamicDialog open={isReceiptModalOpen} onOpenChange={setIsReceiptModalOpen}>
-          <DynamicDialogContent className="sm:max-w-sm w-[90vw]" aria-labelledby={receiptDialogTitleId}>
+          <DynamicDialogContent className="sm:max-w-sm w-[90vw]" >
             <DynamicDialogHeader><DynamicDialogTitle id={receiptDialogTitleId}>{receiptDetails?.receiptTitle || "Nota Transaksi"}</DynamicDialogTitle><DynamicDialogDescription>ID: {receiptDetails?.transactionId}</DynamicDialogDescription></DynamicDialogHeader>
             <div ref={receiptRef} id="receipt-content" className="p-4 border rounded-md bg-white text-black text-xs">
               <div className="text-center mb-2">

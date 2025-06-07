@@ -221,7 +221,7 @@ export default function GoodsReceiptPage() {
       )}
       {selectedOrder && (
         <DynamicDialog open={!!selectedOrder} onOpenChange={(open) => { if (!open) setSelectedOrder(null); }}>
-          <DynamicDialogContent className="sm:max-w-2xl max-h-[90vh] flex flex-col" aria-labelledby={goodsReceiptDialogTitleId}>
+          <DynamicDialogContent className="sm:max-w-2xl max-h-[90vh] flex flex-col" >
             <DynamicDialogHeader>
               <DynamicDialogTitle id={goodsReceiptDialogTitleId}>Proses Penerimaan Order: {selectedOrder.id}</DynamicDialogTitle>
               <DynamicDialogDescription>Supplier: {selectedOrder.supplierName || "N/A"} | Status: <Badge variant="default" className={`${getStatusBadgeColor(selectedOrder.status)} text-white`}>{selectedOrder.status}</Badge></DynamicDialogDescription>

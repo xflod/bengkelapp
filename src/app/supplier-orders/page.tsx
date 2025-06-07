@@ -276,7 +276,7 @@ export default function SupplierOrdersPage() {
       </Tabs>
       {selectedOrderForDetail && isDetailOrderDialogOpen && (
         <DynamicDialog open={isDetailOrderDialogOpen} onOpenChange={setIsDetailOrderDialogOpen}>
-          <DynamicDialogContent className="sm:max-w-lg max-h-[90vh] flex flex-col" aria-labelledby={detailOrderDialogTitleId}>
+          <DynamicDialogContent className="sm:max-w-lg max-h-[90vh] flex flex-col" >
             <DynamicDialogHeader>
               <DynamicDialogTitle id={detailOrderDialogTitleId}>Detail Order: {selectedOrderForDetail.id}</DynamicDialogTitle>
               <DynamicDialogDescription>Tanggal: {format(parseISO(selectedOrderForDetail.orderDate), "dd MMM yyyy, HH:mm", { locale: localeID })} | Supplier: {selectedOrderForDetail.supplierName || '-'} <br/>Status: <Badge className={`${getStatusBadgeColor(selectedOrderForDetail.status)} text-white`}>{selectedOrderForDetail.status}</Badge></DynamicDialogDescription>

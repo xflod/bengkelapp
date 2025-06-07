@@ -173,7 +173,7 @@ export default function AccountsLedgerPage() {
       </Card>
       {isFormEntryDialogOpen && (
         <DynamicDialog open={isFormEntryDialogOpen} onOpenChange={(open) => { setIsFormEntryDialogOpen(open); if (!open) resetEntryFormFields(); }}>
-          <DynamicDialogContent className="sm:max-w-lg max-h-[90vh] flex flex-col" aria-labelledby={entryFormDialogTitleId}>
+          <DynamicDialogContent className="sm:max-w-lg max-h-[90vh] flex flex-col" >
             <DynamicDialogHeader className="flex-shrink-0">
               <DynamicDialogTitle id={entryFormDialogTitleId}>{editingEntry ? 'Edit Catatan' : 'Tambah Catatan Baru'}</DynamicDialogTitle>
             </DynamicDialogHeader>
@@ -196,7 +196,7 @@ export default function AccountsLedgerPage() {
       )}
       {selectedEntryForPayment && (
         <DynamicDialog open={isPaymentDialogOpen} onOpenChange={(open) => { setIsPaymentDialogOpen(open); if(!open) setSelectedEntryForPayment(null); }}>
-          <DynamicDialogContent className="sm:max-w-2xl max-h-[90vh] flex flex-col" aria-labelledby={paymentDialogTitleId}>
+          <DynamicDialogContent className="sm:max-w-2xl max-h-[90vh] flex flex-col" >
             <DynamicDialogHeader>
               <DynamicDialogTitle id={paymentDialogTitleId}>Kelola Pembayaran: {selectedEntryForPayment.entityName}</DynamicDialogTitle>
               <DynamicDialogDescription>Transaksi: {selectedEntryForPayment.description} <br/>Jml Awal: Rp {selectedEntryForPayment.initialAmount.toLocaleString()} | Sisa: Rp <span className="font-bold text-destructive">{selectedEntryForPayment.remainingAmount.toLocaleString()}</span> | Status: <Badge className={`${getStatusBadgeColor(selectedEntryForPayment.status)} text-white`}>{selectedEntryForPayment.status}</Badge></DynamicDialogDescription>

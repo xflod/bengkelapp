@@ -191,7 +191,7 @@ export default function SchedulePage() {
       )}
       {isFormOpen && (
         <DynamicDialog open={isFormOpen} onOpenChange={(open) => { setIsFormOpen(open); if (!open) resetFormFields(); }}>
-          <DynamicDialogContent className="sm:max-w-lg max-h-[90vh] flex flex-col" aria-labelledby={scheduleDialogTitleId}>
+          <DynamicDialogContent className="sm:max-w-lg max-h-[90vh] flex flex-col" >
             <DynamicDialogHeader className="flex-shrink-0">
               <DynamicDialogTitle id={scheduleDialogTitleId}>{editingJobId ? 'Edit Jadwal Servis' : 'Buat Jadwal Servis Baru'}</DynamicDialogTitle>
               <DynamicDialogDescription>{editingJobId ? `Mengedit detail untuk ${vehiclePlate}.` : 'Masukkan detail servis pelanggan.'}</DynamicDialogDescription>

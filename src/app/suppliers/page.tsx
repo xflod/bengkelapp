@@ -237,7 +237,7 @@ export default function SuppliersPage() {
 
       {isFormOpen && (
         <DynamicDialog open={isFormOpen} onOpenChange={(open) => { setIsFormOpen(open); if (!open) resetFormFields(); }}>
-          <DynamicDialogContent className="sm:max-w-lg max-h-[90vh] flex flex-col" aria-labelledby={supplierFormDialogTitleId}>
+          <DynamicDialogContent className="sm:max-w-lg max-h-[90vh] flex flex-col" >
             <DynamicDialogHeader className="flex-shrink-0">
               <DynamicDialogTitle id={supplierFormDialogTitleId}>{editingSupplier ? 'Edit Data Supplier' : 'Tambah Supplier Baru'}</DynamicDialogTitle>
               <DynamicDialogDescription>
