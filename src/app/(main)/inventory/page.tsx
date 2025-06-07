@@ -322,44 +322,44 @@ export default function InventoryPage() {
               <Table>
                 <TableHeader className="sticky top-0 bg-card z-10">
                   <TableRow>
-                    <TableHead className="w-[80px]">Status</TableHead>
-                    <TableHead className="min-w-[120px]">SKU</TableHead>
-                    <TableHead className="min-w-[200px]">Nama Item</TableHead>
-                    <TableHead className="min-w-[120px]">Kategori</TableHead>
-                    <TableHead className="text-right min-w-[120px]">Hrg. Modal</TableHead>
-                    <TableHead className="text-right min-w-[120px]">Hrg. Jual Saja</TableHead>
-                    <TableHead className="text-right min-w-[120px]">Hrg. Partner</TableHead>
-                    <TableHead className="text-right min-w-[140px]">Hrg. Jual + Pasang</TableHead>
-                    <TableHead className="text-center min-w-[80px]">Stok</TableHead>
-                    <TableHead className="text-center min-w-[80px]">Stok Min.</TableHead>
-                    <TableHead className="text-center w-[120px]">Aksi</TableHead>
+                    <TableHead className="w-[80px] px-2 py-3">Status</TableHead>
+                    <TableHead className="min-w-[100px] px-2 py-3">SKU</TableHead>
+                    <TableHead className="min-w-[180px] px-2 py-3">Nama Item</TableHead>
+                    <TableHead className="min-w-[100px] px-2 py-3">Kategori</TableHead>
+                    <TableHead className="text-right min-w-[100px] px-2 py-3">Hrg. Modal</TableHead>
+                    <TableHead className="text-right min-w-[100px] px-2 py-3">Hrg. Jual Saja</TableHead>
+                    <TableHead className="text-right min-w-[100px] px-2 py-3">Hrg. Partner</TableHead>
+                    <TableHead className="text-right min-w-[120px] px-2 py-3">Hrg. Jual + Pasang</TableHead>
+                    <TableHead className="text-center min-w-[70px] px-2 py-3">Stok</TableHead>
+                    <TableHead className="text-center min-w-[70px] px-2 py-3">Stok Min.</TableHead>
+                    <TableHead className="text-center w-[100px] px-2 py-3">Aksi</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
                   {filteredAndSortedProducts.map((product) => (
                     <TableRow key={product.id} className={getProductRowClass(product)}>
-                      <TableCell>
+                      <TableCell className="px-2 py-2">
                         <Switch checked={product.isActive} onCheckedChange={() => handleToggleActive(product.id, product.isActive)} aria-label={product.isActive ? "Nonaktifkan" : "Aktifkan"}/>
                       </TableCell>
-                      <TableCell className="font-mono text-xs">{product.sku}</TableCell>
-                      <TableCell className="font-medium">
+                      <TableCell className="font-mono text-xs px-2 py-2 break-all">{product.sku}</TableCell>
+                      <TableCell className="font-medium px-2 py-2 break-words">
                         {product.name}
                         {!product.isActive && <Badge variant="outline" className="ml-2 text-xs">Nonaktif</Badge>}
                         {product.category !== 'Jasa' && product.isActive && product.stockQuantity === 0 && <Badge variant="destructive" className="ml-2 text-xs">Habis</Badge>}
                         {product.category !== 'Jasa' && product.isActive && product.stockQuantity > 0 && product.lowStockThreshold > 0 && product.stockQuantity <= product.lowStockThreshold && <Badge variant="outline" className="ml-2 text-xs border-yellow-500 text-yellow-700">Menipis</Badge>}
                       </TableCell>
-                      <TableCell>{product.category}</TableCell>
-                      <TableCell className="text-right whitespace-nowrap">Rp {product.costPrice.toLocaleString()}</TableCell>
-                      <TableCell className="text-right whitespace-nowrap">Rp {product.sellingPrices.find(p => p.tierName === 'default')?.price.toLocaleString() || '-'}</TableCell>
-                      <TableCell className="text-right whitespace-nowrap">
+                      <TableCell className="px-2 py-2">{product.category}</TableCell>
+                      <TableCell className="text-right px-2 py-2">Rp {product.costPrice.toLocaleString()}</TableCell>
+                      <TableCell className="text-right px-2 py-2">Rp {product.sellingPrices.find(p => p.tierName === 'default')?.price.toLocaleString() || '-'}</TableCell>
+                      <TableCell className="text-right px-2 py-2">
                         {product.sellingPrices.find(p => p.tierName === 'partner')?.price?.toLocaleString() ? `Rp ${product.sellingPrices.find(p => p.tierName === 'partner')?.price.toLocaleString()}` : '-'}
                       </TableCell>
-                       <TableCell className="text-right whitespace-nowrap">
+                       <TableCell className="text-right px-2 py-2">
                         {product.category !== 'Jasa' && product.sellingPrices.find(p => p.tierName === 'servicePackage')?.price?.toLocaleString() ? `Rp ${product.sellingPrices.find(p => p.tierName === 'servicePackage')?.price.toLocaleString()}` : '-'}
                       </TableCell>
-                      <TableCell className="text-center">{product.category === 'Jasa' ? '-' : product.stockQuantity}</TableCell>
-                      <TableCell className="text-center">{product.category === 'Jasa' ? '-' : product.lowStockThreshold}</TableCell>
-                      <TableCell className="text-center">
+                      <TableCell className="text-center px-2 py-2">{product.category === 'Jasa' ? '-' : product.stockQuantity}</TableCell>
+                      <TableCell className="text-center px-2 py-2">{product.category === 'Jasa' ? '-' : product.lowStockThreshold}</TableCell>
+                      <TableCell className="text-center px-2 py-2">
                         <div className="flex justify-center items-center gap-1">
                           <Button variant="ghost" size="icon" className="h-7 w-7 hover:bg-accent" onClick={() => handleOpenFormDialog(product)} title="Edit Item"><Edit3 className="h-4 w-4" /></Button>
                           <Button variant="ghost" size="icon" className="h-7 w-7 text-destructive hover:text-destructive hover:bg-destructive/10" onClick={() => handleDeleteProduct(product.id, product.name)} title="Hapus Item"><Trash2 className="h-4 w-4" /></Button>
@@ -429,6 +429,3 @@ export default function InventoryPage() {
     </div>
   );
 }
-
-
-    
