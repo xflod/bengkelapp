@@ -1,7 +1,7 @@
 
 "use client";
 
-import React, { useState, useEffect, useCallback, Suspense } from 'react'; // Added Suspense
+import React, { useState, useEffect, useCallback, Suspense } from 'react';
 import { useSearchParams } from 'next/navigation';
 import { PageHeader } from "@/components/shared/PageHeader";
 import { Button } from "@/components/ui/button";
@@ -33,11 +33,10 @@ interface ServiceJob {
   estimated_progress?: number;
 }
 
-// New inner component to handle Suspense
 function ServiceStatusContent() {
   const { toast } = useToast();
   const [accessCodeInput, setAccessCodeInput] = useState('');
-  const [serviceJob, setServiceJob] = useState<ServiceJob | null | undefined>(undefined);
+  const [serviceJob, setServiceJob] = useState<ServiceJob | null | undefined>(undefined); // undefined initially
   const [isLoading, setIsLoading] = useState(false);
   
   const searchParams = useSearchParams();
@@ -73,21 +72,17 @@ function ServiceStatusContent() {
   };
 
   useEffect(() => {
-    if (typeof window !== "undefined") {
-      const codeFromQuery = searchParams.get('code');
-      if (codeFromQuery) {
-        setAccessCodeInput(codeFromQuery);
+    const codeFromQuery = searchParams.get('code');
+    if (codeFromQuery) {
+      const upperCode = codeFromQuery.toUpperCase();
+      setAccessCodeInput(upperCode);
+      // Automatically search if code is from URL and no job is loaded/loading
+      if (serviceJob === undefined && !isLoading) {
+        performSearch(upperCode);
       }
     }
-  }, [searchParams]);
-
-  useEffect(() => {
-    if (accessCodeInput && serviceJob === undefined && !isLoading) {
-      performSearch(accessCodeInput);
-    }
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [accessCodeInput, serviceJob, isLoading, performSearch]);
-
+  }, [searchParams]); // performSearch is not added here to prevent re-triggering on its own change
 
   const getStatusBadge = (status: ServiceJob['status']): React.ReactNode => {
     let variant: "default" | "secondary" | "destructive" | "outline" = "default";
@@ -222,20 +217,39 @@ function ServiceStatusContent() {
 }
 
 export default function ServiceStatusPage() {
+  const [isClient, setIsClient] = useState(false);
+
+  useEffect(() => {
+    setIsClient(true);
+  }, []);
+
   return (
     <div className="container mx-auto p-4 md:p-6 lg:p-8 min-h-screen flex flex-col items-center">
       <PageHeader title="Cek Status Servis Kendaraan Anda" description="Masukkan kode akses yang Anda terima untuk melihat progres pengerjaan."/>
-      <Suspense fallback={
+      
+      {!isClient && (
         <Card className="w-full max-w-lg shadow-xl text-center py-10">
           <Hourglass className="h-12 w-12 text-primary animate-spin mx-auto mb-4" />
-          <p className="text-muted-foreground">Memuat detail servis...</p>
+          <p className="text-muted-foreground">Mempersiapkan halaman...</p>
         </Card>
-      }>
-        <ServiceStatusContent />
-      </Suspense>
+      )}
+
+      {isClient && (
+        <Suspense fallback={
+          <Card className="w-full max-w-lg shadow-xl text-center py-10">
+            <Hourglass className="h-12 w-12 text-primary animate-spin mx-auto mb-4" />
+            <p className="text-muted-foreground">Memuat detail servis...</p>
+          </Card>
+        }>
+          <ServiceStatusContent />
+        </Suspense>
+      )}
+      
       <footer className="mt-auto pt-8 text-center text-sm text-muted-foreground">
         BengkelKu App &copy; {new Date().getFullYear()}
       </footer>
     </div>
   );
 }
+
+    
