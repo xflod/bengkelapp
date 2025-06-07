@@ -13,32 +13,33 @@ import { Badge } from "@/components/ui/badge";
 import { Label } from "@/components/ui/label";
 import { Hourglass, PlayCircle, CheckCircle2, AlertCircle, XCircle, Search, Info } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
-import { format } from 'date-fns';
+import { format, parseISO } from 'date-fns'; // parseISO is important
 import { id as localeID } from 'date-fns/locale';
 import { supabase } from '@/lib/supabase';
 
 interface ServiceJob {
   id: number;
-  customerName: string;
-  customerPhone?: string;
-  vehiclePlate: string;
-  vehicleType: string;
-  serviceRequest: string;
-  actualStartTime?: string;
-  workDoneNotes?: string;
+  customer_name: string; // snake_case from db
+  customer_phone?: string;
+  vehicle_plate: string; // snake_case from db
+  vehicle_type: string; // snake_case from db
+  service_request: string; // snake_case from db
+  actual_start_time?: string; // snake_case from db
+  work_done_notes?: string; // snake_case from db
   status: 'Antrian' | 'Dikerjakan' | 'Menunggu Konfirmasi' | 'Selesai' | 'Dibatalkan';
-  accessCode: string;
-  createdAt: string;
-  updatedAt: string;
-  estimatedProgress?: number;
+  access_code: string; // snake_case from db
+  created_at: string; // snake_case from db
+  updated_at: string; // snake_case from db
+  estimated_progress?: number; // snake_case from db
 }
 
 export default function ServiceStatusPage() {
   const { toast } = useToast();
-  const searchParams = useSearchParams();
   const [accessCodeInput, setAccessCodeInput] = useState('');
   const [serviceJob, setServiceJob] = useState<ServiceJob | null | undefined>(undefined); 
   const [isLoading, setIsLoading] = useState(false);
+  
+  const searchParams = useSearchParams();
 
   const performSearch = useCallback(async (codeToSearch: string) => {
     if (!codeToSearch) {
@@ -48,12 +49,12 @@ export default function ServiceStatusPage() {
     setIsLoading(true); setServiceJob(undefined); 
 
     const { data, error } = await supabase
-      .from('serviceJobs')
+      .from('service_jobs') // Correct table name
       .select('*')
-      .eq('accessCode', codeToSearch.toUpperCase())
-      .single(); // Expect only one or null
+      .eq('access_code', codeToSearch.toUpperCase()) // Correct column name
+      .single();
 
-    if (error && error.code !== 'PGRST116') { // PGRST116: Row not found (not an error for .single())
+    if (error && error.code !== 'PGRST116') {
       console.error("Error fetching service job by access code:", error);
       setServiceJob(null);
       toast({ variant: "destructive", title: "Terjadi Kesalahan", description: error.message });
@@ -68,34 +69,153 @@ export default function ServiceStatusPage() {
 
   const handleManualCheck = () => { performSearch(accessCodeInput.trim()); };
   
-  useEffect(() => { const codeFromQuery = searchParams.get('code'); if (codeFromQuery) { setAccessCodeInput(codeFromQuery); if (!isLoading && serviceJob === undefined) { performSearch(codeFromQuery); } } }, [searchParams, isLoading, serviceJob, performSearch]);
+  useEffect(() => {
+    if (typeof window !== "undefined") { // Ensure this runs only on client
+      const codeFromQuery = searchParams.get('code');
+      if (codeFromQuery) {
+        setAccessCodeInput(codeFromQuery);
+        // Auto-search if code is from query and not already loading/searched
+        if (!isLoading && serviceJob === undefined) {
+          performSearch(codeFromQuery);
+        }
+      }
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [searchParams]); // Rerun when searchParams change (e.g. initial load from URL)
+                      // performSearch is memoized, isLoading and serviceJob are checked inside
 
-  // UI helper functions (getStatusBadge, maskCustomerName) remain the same
-  const getStatusBadge = (status: ServiceJob['status']): React.ReactNode => { let variant: "default" | "secondary" | "destructive" | "outline" = "default"; let icon = null; let colorClass = ""; switch (status) { case 'Antrian': variant = 'secondary'; icon = <Hourglass className="mr-1 h-3 w-3" />; colorClass="bg-slate-500 hover:bg-slate-600"; break; case 'Dikerjakan': variant = 'default'; icon = <PlayCircle className="mr-1 h-3 w-3" />; colorClass="bg-blue-500 hover:bg-blue-600"; break; case 'Menunggu Konfirmasi': variant = 'outline'; icon = <AlertCircle className="mr-1 h-3 w-3" />; colorClass="bg-yellow-500 text-yellow-foreground hover:bg-yellow-600 border-yellow-600"; break; case 'Selesai': variant = 'default'; icon = <CheckCircle2 className="mr-1 h-3 w-3" />; colorClass="bg-green-600 hover:bg-green-700"; break; case 'Dibatalkan': variant = 'destructive'; icon = <XCircle className="mr-1 h-3 w-3" />; colorClass="bg-red-600 hover:bg-red-700"; break; } return <Badge variant={variant} className={`whitespace-nowrap text-sm py-1 px-3 ${colorClass} text-white`}>{icon}{status}</Badge>; };
-  const maskCustomerName = (name: string) => { if (name.length <= 3) return name; return `${name.substring(0, 1)}***${name.substring(name.length -1)}`; }
+
+  const getStatusBadge = (status: ServiceJob['status']): React.ReactNode => { 
+    let variant: "default" | "secondary" | "destructive" | "outline" = "default"; 
+    let icon = null; 
+    let colorClass = ""; 
+    switch (status) { 
+      case 'Antrian': variant = 'secondary'; icon = <Hourglass className="mr-1 h-3 w-3" />; colorClass="bg-slate-500 hover:bg-slate-600"; break; 
+      case 'Dikerjakan': variant = 'default'; icon = <PlayCircle className="mr-1 h-3 w-3" />; colorClass="bg-blue-500 hover:bg-blue-600"; break; 
+      case 'Menunggu Konfirmasi': variant = 'outline'; icon = <AlertCircle className="mr-1 h-3 w-3" />; colorClass="bg-yellow-500 text-yellow-foreground hover:bg-yellow-600 border-yellow-600"; break; 
+      case 'Selesai': variant = 'default'; icon = <CheckCircle2 className="mr-1 h-3 w-3" />; colorClass="bg-green-600 hover:bg-green-700"; break; 
+      case 'Dibatalkan': variant = 'destructive'; icon = <XCircle className="mr-1 h-3 w-3" />; colorClass="bg-red-600 hover:bg-red-700"; break; 
+    } 
+    return <Badge variant={variant} className={`whitespace-nowrap text-sm py-1 px-3 ${colorClass} text-white`}>{icon}{status}</Badge>; 
+  };
+  const maskCustomerName = (name: string) => { 
+    if (!name || name.length <= 3) return name || 'N/A'; return `${name.substring(0, 1)}***${name.substring(name.length -1)}`; 
+  }
 
   return (
     <div className="container mx-auto p-4 md:p-6 lg:p-8 min-h-screen flex flex-col items-center">
       <PageHeader title="Cek Status Servis Kendaraan Anda" description="Masukkan kode akses yang Anda terima untuk melihat progres pengerjaan."/>
-      <Card className="w-full max-w-lg shadow-xl mb-6"><CardHeader><CardTitle>Masukkan Kode Akses Servis</CardTitle></CardHeader><CardContent className="space-y-4"><div className="flex gap-2"><Input type="text" placeholder="Contoh: ABC123XYZ" value={accessCodeInput} onChange={(e) => setAccessCodeInput(e.target.value)} className="flex-grow text-lg" disabled={isLoading} onKeyDown={(e) => { if (e.key === 'Enter') handleManualCheck(); }}/><Button onClick={handleManualCheck} disabled={isLoading || !accessCodeInput.trim()} className="bg-primary hover:bg-primary/90 text-primary-foreground"><Search className="mr-2 h-4 w-4" />{isLoading ? "Mencari..." : "Cek Status"}</Button></div></CardContent></Card>
-      {isLoading && (<div className="text-center py-10"><Hourglass className="h-12 w-12 text-primary animate-spin mx-auto mb-4" /><p className="text-muted-foreground">Memuat status servis...</p></div>)}
-      {serviceJob === null && !isLoading && (<Alert variant="destructive" className="w-full max-w-lg"><AlertCircle className="h-4 w-4" /><AlertTitle>Kode Tidak Ditemukan</AlertTitle><AlertDescription>Pastikan kode akses benar dan coba lagi.</AlertDescription></Alert>)}
+      <Card className="w-full max-w-lg shadow-xl mb-6">
+        <CardHeader><CardTitle>Masukkan Kode Akses Servis</CardTitle></CardHeader>
+        <CardContent className="space-y-4">
+          <div className="flex gap-2">
+            <Input type="text" placeholder="Contoh: ABC123XYZ" value={accessCodeInput} onChange={(e) => setAccessCodeInput(e.target.value.toUpperCase())} className="flex-grow text-lg" disabled={isLoading} onKeyDown={(e) => { if (e.key === 'Enter') handleManualCheck(); }}/>
+            <Button onClick={handleManualCheck} disabled={isLoading || !accessCodeInput.trim()} className="bg-primary hover:bg-primary/90 text-primary-foreground">
+              <Search className="mr-2 h-4 w-4" />{isLoading ? "Mencari..." : "Cek Status"}
+            </Button>
+          </div>
+        </CardContent>
+      </Card>
+      
+      {isLoading && (
+        <div className="text-center py-10">
+          <Hourglass className="h-12 w-12 text-primary animate-spin mx-auto mb-4" />
+          <p className="text-muted-foreground">Memuat status servis...</p>
+        </div>
+      )}
+
+      {serviceJob === null && !isLoading && (
+        <Alert variant="destructive" className="w-full max-w-lg">
+          <AlertCircle className="h-4 w-4" />
+          <AlertTitle>Kode Tidak Ditemukan</AlertTitle>
+          <AlertDescription>Pastikan kode akses benar dan coba lagi.</AlertDescription>
+        </Alert>
+      )}
+
       {serviceJob && !isLoading && (
         <Card className="w-full max-w-2xl shadow-xl">
-          <CardHeader><div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-2"><div><CardTitle className="text-2xl text-primary">Status Servis: {serviceJob.vehiclePlate}</CardTitle><CardDescription>{serviceJob.vehicleType} (A/N: {maskCustomerName(serviceJob.customerName)})</CardDescription></div>{getStatusBadge(serviceJob.status)}</div><p className="text-xs text-muted-foreground pt-1">Kode Akses: {serviceJob.accessCode} | Dibuat: {format(new Date(serviceJob.createdAt), "dd MMM yyyy, HH:mm", { locale: localeID })}</p></CardHeader>
+          <CardHeader>
+            <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-2">
+              <div>
+                <CardTitle className="text-2xl text-primary">Status Servis: {serviceJob.vehicle_plate}</CardTitle>
+                <CardDescription>{serviceJob.vehicle_type} (A/N: {maskCustomerName(serviceJob.customer_name)})</CardDescription>
+              </div>
+              {getStatusBadge(serviceJob.status)}
+            </div>
+            <p className="text-xs text-muted-foreground pt-1">
+              Kode Akses: {serviceJob.access_code} | Dibuat: {format(parseISO(serviceJob.created_at), "dd MMM yyyy, HH:mm", { locale: localeID })}
+            </p>
+          </CardHeader>
           <CardContent className="space-y-6">
-            {(serviceJob.status === 'Selesai' || serviceJob.status === 'Dibatalkan') ? (<Alert variant={serviceJob.status === 'Selesai' ? "default" : "destructive"} className={serviceJob.status === 'Selesai' ? "bg-green-50 border-green-300" : ""}><Info className="h-4 w-4" /><AlertTitle>{serviceJob.status === 'Selesai' ? "Servis Selesai" : "Servis Dibatalkan"}</AlertTitle><AlertDescription>{serviceJob.status === 'Selesai' ? `Kendaraan selesai diservis pada ${format(new Date(serviceJob.updatedAt), "dd MMM yyyy, HH:mm", { locale: localeID })}.` : `Servis dibatalkan pada ${format(new Date(serviceJob.updatedAt), "dd MMM yyyy, HH:mm", { locale: localeID })}.`}{serviceJob.workDoneNotes && serviceJob.status === 'Selesai' && (<div className="mt-3 pt-3 border-t"><p className="font-medium text-sm text-foreground">Catatan Akhir:</p><p className="text-sm whitespace-pre-wrap">{serviceJob.workDoneNotes}</p></div>)}</AlertDescription></Alert>) : (
-                <><div><Label className="text-sm font-medium text-muted-foreground">Estimasi Progres:</Label><div className="flex items-center gap-3 mt-1"><Progress value={serviceJob.estimatedProgress || 0} className="w-full h-3" /><span className="text-sm font-semibold text-primary">{serviceJob.estimatedProgress || 0}%</span></div>{serviceJob.estimatedProgress === 0 && serviceJob.status === 'Antrian' && (<p className="text-xs text-muted-foreground mt-1">Dalam antrian.</p>)}{serviceJob.estimatedProgress !== undefined && serviceJob.estimatedProgress > 0 && serviceJob.estimatedProgress < 100 && (<p className="text-xs text-muted-foreground mt-1">Pengerjaan berlangsung.</p>)}</div>
-                {serviceJob.actualStartTime && (<div><Label className="text-sm font-medium text-muted-foreground">Mulai Dikerjakan:</Label><p className="text-sm">{format(new Date(serviceJob.actualStartTime), "dd MMM yyyy, HH:mm", { locale: localeID })}</p></div>)}
-                <div><Label className="text-sm font-medium text-muted-foreground">Keluhan Awal:</Label><p className="text-sm whitespace-pre-wrap p-2 bg-muted/30 rounded-md mt-1">{serviceJob.serviceRequest || "-"}</p></div>
-                {serviceJob.workDoneNotes && (<div><Label className="text-sm font-medium text-muted-foreground">Update dari Mekanik:</Label><p className="text-sm whitespace-pre-wrap p-2 bg-muted/30 rounded-md mt-1">{serviceJob.workDoneNotes}</p></div>)}
-                {(serviceJob.status === 'Menunggu Konfirmasi') && (<Alert variant="default" className="bg-yellow-50 border-yellow-300 text-yellow-700"><AlertCircle className="h-4 w-4 text-yellow-600" /><AlertTitle className="text-yellow-700">Menunggu Konfirmasi Anda</AlertTitle><AlertDescription className="text-yellow-600">Ada hal yang perlu konfirmasi Anda. Mohon hubungi bengkel.</AlertDescription></Alert>)}</>
+            {(serviceJob.status === 'Selesai' || serviceJob.status === 'Dibatalkan') ? (
+              <Alert variant={serviceJob.status === 'Selesai' ? "default" : "destructive"} className={serviceJob.status === 'Selesai' ? "bg-green-50 dark:bg-green-900/20 border-green-300 dark:border-green-700" : ""}>
+                <Info className="h-4 w-4" />
+                <AlertTitle>{serviceJob.status === 'Selesai' ? "Servis Selesai" : "Servis Dibatalkan"}</AlertTitle>
+                <AlertDescription>
+                  {serviceJob.status === 'Selesai' ? `Kendaraan selesai diservis pada ${format(parseISO(serviceJob.updated_at), "dd MMM yyyy, HH:mm", { locale: localeID })}.` : `Servis dibatalkan pada ${format(parseISO(serviceJob.updated_at), "dd MMM yyyy, HH:mm", { locale: localeID })}.`}
+                  {serviceJob.work_done_notes && serviceJob.status === 'Selesai' && (
+                    <div className="mt-3 pt-3 border-t border-gray-300 dark:border-gray-700">
+                      <p className="font-medium text-sm text-foreground">Catatan Akhir:</p>
+                      <p className="text-sm whitespace-pre-wrap">{serviceJob.work_done_notes}</p>
+                    </div>
+                  )}
+                </AlertDescription>
+              </Alert>
+            ) : (
+              <>
+                <div>
+                  <Label className="text-sm font-medium text-muted-foreground">Estimasi Progres:</Label>
+                  <div className="flex items-center gap-3 mt-1">
+                    <Progress value={serviceJob.estimated_progress || 0} className="w-full h-3" />
+                    <span className="text-sm font-semibold text-primary">{serviceJob.estimated_progress || 0}%</span>
+                  </div>
+                  {serviceJob.estimated_progress === 0 && serviceJob.status === 'Antrian' && (
+                    <p className="text-xs text-muted-foreground mt-1">Kendaraan Anda sedang dalam antrian pengerjaan.</p>
+                  )}
+                  {serviceJob.estimated_progress !== undefined && serviceJob.estimated_progress > 0 && serviceJob.estimated_progress < 100 && (
+                    <p className="text-xs text-muted-foreground mt-1">Proses pengerjaan sedang berlangsung.</p>
+                  )}
+                </div>
+                
+                {serviceJob.actual_start_time && (
+                  <div>
+                    <Label className="text-sm font-medium text-muted-foreground">Mulai Dikerjakan:</Label>
+                    <p className="text-sm">{format(parseISO(serviceJob.actual_start_time), "dd MMM yyyy, HH:mm", { locale: localeID })}</p>
+                  </div>
+                )}
+
+                <div>
+                  <Label className="text-sm font-medium text-muted-foreground">Keluhan Awal:</Label>
+                  <p className="text-sm whitespace-pre-wrap p-2 bg-muted/30 rounded-md mt-1">{serviceJob.service_request || "-"}</p>
+                </div>
+
+                {serviceJob.work_done_notes && (
+                  <div>
+                    <Label className="text-sm font-medium text-muted-foreground">Update dari Mekanik:</Label>
+                    <p className="text-sm whitespace-pre-wrap p-2 bg-muted/30 rounded-md mt-1">{serviceJob.work_done_notes}</p>
+                  </div>
+                )}
+
+                {(serviceJob.status === 'Menunggu Konfirmasi') && (
+                  <Alert variant="default" className="bg-yellow-50 dark:bg-yellow-900/20 border-yellow-300 dark:border-yellow-700 text-yellow-700 dark:text-yellow-300">
+                    <AlertCircle className="h-4 w-4 text-yellow-600 dark:text-yellow-400" />
+                    <AlertTitle className="text-yellow-700 dark:text-yellow-200">Menunggu Konfirmasi Anda</AlertTitle>
+                    <AlertDescription className="text-yellow-600 dark:text-yellow-400">Ada hal yang perlu dikonfirmasi oleh Anda terkait servis ini. Mohon segera hubungi pihak bengkel.</AlertDescription>
+                  </Alert>
+                )}
+              </>
             )}
-            <p className="text-xs text-muted-foreground pt-4 border-t mt-4 text-center">Update terakhir: {format(new Date(serviceJob.updatedAt), "dd MMM yyyy, HH:mm:ss", { locale: localeID })}.<br/>Hubungi bengkel untuk info paling akurat.</p>
+            <p className="text-xs text-muted-foreground pt-4 border-t border-gray-200 dark:border-gray-700 mt-4 text-center">
+              Update terakhir: {format(parseISO(serviceJob.updated_at), "dd MMM yyyy, HH:mm:ss", { locale: localeID })}.
+              <br/>Hubungi bengkel untuk informasi yang paling akurat.
+            </p>
           </CardContent>
         </Card>
       )}
-      <footer className="mt-auto pt-8 text-center text-sm text-muted-foreground">BengkelKu App &copy; {new Date().getFullYear()}</footer>
+      <footer className="mt-auto pt-8 text-center text-sm text-muted-foreground">
+        BengkelKu App &copy; {new Date().getFullYear()}
+      </footer>
     </div>
   );
 }
+
