@@ -1,3 +1,4 @@
+
 "use client";
 
 import * as React from "react";
@@ -90,11 +91,16 @@ function AppSidebarHeader() {
 }
 
 function AppSidebarFooter() {
+  const [currentYear, setCurrentYear] = React.useState<string | number>('');
+
+  React.useEffect(() => {
+    setCurrentYear(new Date().getFullYear());
+  }, []); // Empty dependency array ensures this runs once on mount (client-side)
+
   return (
     <SidebarFooter className="p-4 group-data-[collapsible=icon]:p-2">
-      {/* Placeholder for footer content, e.g., settings or app version */}
       <p className="text-xs text-sidebar-foreground/70 group-data-[collapsible=icon]:hidden">
-        © {new Date().getFullYear()} BengkelKu App
+        © {currentYear} BengkelKu App
       </p>
     </SidebarFooter>
   );
