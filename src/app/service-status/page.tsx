@@ -1,7 +1,7 @@
 
 "use client";
 
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, Suspense } from 'react'; // Added Suspense
 import { useSearchParams } from 'next/navigation';
 import { PageHeader } from "@/components/shared/PageHeader";
 import { Button } from "@/components/ui/button";
@@ -13,30 +13,31 @@ import { Badge } from "@/components/ui/badge";
 import { Label } from "@/components/ui/label";
 import { Hourglass, PlayCircle, CheckCircle2, AlertCircle, XCircle, Search, Info } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
-import { format, parseISO } from 'date-fns'; // parseISO is important
+import { format, parseISO } from 'date-fns';
 import { id as localeID } from 'date-fns/locale';
 import { supabase } from '@/lib/supabase';
 
 interface ServiceJob {
   id: number;
-  customer_name: string; // snake_case from db
+  customer_name: string;
   customer_phone?: string;
-  vehicle_plate: string; // snake_case from db
-  vehicle_type: string; // snake_case from db
-  service_request: string; // snake_case from db
-  actual_start_time?: string; // snake_case from db
-  work_done_notes?: string; // snake_case from db
+  vehicle_plate: string;
+  vehicle_type: string;
+  service_request: string;
+  actual_start_time?: string;
+  work_done_notes?: string;
   status: 'Antrian' | 'Dikerjakan' | 'Menunggu Konfirmasi' | 'Selesai' | 'Dibatalkan';
-  access_code: string; // snake_case from db
-  created_at: string; // snake_case from db
-  updated_at: string; // snake_case from db
-  estimated_progress?: number; // snake_case from db
+  access_code: string;
+  created_at: string;
+  updated_at: string;
+  estimated_progress?: number;
 }
 
-export default function ServiceStatusPage() {
+// New inner component to handle Suspense
+function ServiceStatusContent() {
   const { toast } = useToast();
   const [accessCodeInput, setAccessCodeInput] = useState('');
-  const [serviceJob, setServiceJob] = useState<ServiceJob | null | undefined>(undefined); 
+  const [serviceJob, setServiceJob] = useState<ServiceJob | null | undefined>(undefined);
   const [isLoading, setIsLoading] = useState(false);
   
   const searchParams = useSearchParams();
@@ -46,12 +47,12 @@ export default function ServiceStatusPage() {
       toast({ variant: "destructive", title: "Kode Akses Kosong" });
       setIsLoading(false); return;
     }
-    setIsLoading(true); setServiceJob(undefined); 
+    setIsLoading(true); setServiceJob(undefined);
 
     const { data, error } = await supabase
-      .from('service_jobs') // Correct table name
+      .from('service_jobs')
       .select('*')
-      .eq('access_code', codeToSearch.toUpperCase()) // Correct column name
+      .eq('access_code', codeToSearch.toUpperCase())
       .single();
 
     if (error && error.code !== 'PGRST116') {
@@ -61,50 +62,54 @@ export default function ServiceStatusPage() {
     } else if (data) {
       setServiceJob(data as ServiceJob);
     } else {
-      setServiceJob(null); 
+      setServiceJob(null);
       toast({ variant: "destructive", title: "Kode Tidak Ditemukan" });
     }
     setIsLoading(false);
   }, [toast]);
 
-  const handleManualCheck = () => { performSearch(accessCodeInput.trim()); };
-  
+  const handleManualCheck = () => {
+    performSearch(accessCodeInput.trim());
+  };
+
   useEffect(() => {
-    if (typeof window !== "undefined") { // Ensure this runs only on client
+    if (typeof window !== "undefined") {
       const codeFromQuery = searchParams.get('code');
       if (codeFromQuery) {
         setAccessCodeInput(codeFromQuery);
-        // Auto-search if code is from query and not already loading/searched
-        if (!isLoading && serviceJob === undefined) {
-          performSearch(codeFromQuery);
-        }
       }
     }
+  }, [searchParams]);
+
+  useEffect(() => {
+    if (accessCodeInput && serviceJob === undefined && !isLoading) {
+      performSearch(accessCodeInput);
+    }
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [searchParams]); // Rerun when searchParams change (e.g. initial load from URL)
-                      // performSearch is memoized, isLoading and serviceJob are checked inside
+  }, [accessCodeInput, serviceJob, isLoading, performSearch]);
 
 
-  const getStatusBadge = (status: ServiceJob['status']): React.ReactNode => { 
-    let variant: "default" | "secondary" | "destructive" | "outline" = "default"; 
-    let icon = null; 
-    let colorClass = ""; 
-    switch (status) { 
-      case 'Antrian': variant = 'secondary'; icon = <Hourglass className="mr-1 h-3 w-3" />; colorClass="bg-slate-500 hover:bg-slate-600"; break; 
-      case 'Dikerjakan': variant = 'default'; icon = <PlayCircle className="mr-1 h-3 w-3" />; colorClass="bg-blue-500 hover:bg-blue-600"; break; 
-      case 'Menunggu Konfirmasi': variant = 'outline'; icon = <AlertCircle className="mr-1 h-3 w-3" />; colorClass="bg-yellow-500 text-yellow-foreground hover:bg-yellow-600 border-yellow-600"; break; 
-      case 'Selesai': variant = 'default'; icon = <CheckCircle2 className="mr-1 h-3 w-3" />; colorClass="bg-green-600 hover:bg-green-700"; break; 
-      case 'Dibatalkan': variant = 'destructive'; icon = <XCircle className="mr-1 h-3 w-3" />; colorClass="bg-red-600 hover:bg-red-700"; break; 
-    } 
-    return <Badge variant={variant} className={`whitespace-nowrap text-sm py-1 px-3 ${colorClass} text-white`}>{icon}{status}</Badge>; 
+  const getStatusBadge = (status: ServiceJob['status']): React.ReactNode => {
+    let variant: "default" | "secondary" | "destructive" | "outline" = "default";
+    let icon = null;
+    let colorClass = "";
+    switch (status) {
+      case 'Antrian': variant = 'secondary'; icon = <Hourglass className="mr-1 h-3 w-3" />; colorClass="bg-slate-500 hover:bg-slate-600"; break;
+      case 'Dikerjakan': variant = 'default'; icon = <PlayCircle className="mr-1 h-3 w-3" />; colorClass="bg-blue-500 hover:bg-blue-600"; break;
+      case 'Menunggu Konfirmasi': variant = 'outline'; icon = <AlertCircle className="mr-1 h-3 w-3" />; colorClass="bg-yellow-500 text-yellow-foreground hover:bg-yellow-600 border-yellow-600"; break;
+      case 'Selesai': variant = 'default'; icon = <CheckCircle2 className="mr-1 h-3 w-3" />; colorClass="bg-green-600 hover:bg-green-700"; break;
+      case 'Dibatalkan': variant = 'destructive'; icon = <XCircle className="mr-1 h-3 w-3" />; colorClass="bg-red-600 hover:bg-red-700"; break;
+    }
+    return <Badge variant={variant} className={`whitespace-nowrap text-sm py-1 px-3 ${colorClass} text-white`}>{icon}{status}</Badge>;
   };
-  const maskCustomerName = (name: string) => { 
-    if (!name || name.length <= 3) return name || 'N/A'; return `${name.substring(0, 1)}***${name.substring(name.length -1)}`; 
+
+  const maskCustomerName = (name?: string) => {
+    if (!name || name.length <= 3) return name || 'N/A';
+    return `${name.substring(0, 1)}***${name.substring(name.length -1)}`;
   }
 
   return (
-    <div className="container mx-auto p-4 md:p-6 lg:p-8 min-h-screen flex flex-col items-center">
-      <PageHeader title="Cek Status Servis Kendaraan Anda" description="Masukkan kode akses yang Anda terima untuk melihat progres pengerjaan."/>
+    <>
       <Card className="w-full max-w-lg shadow-xl mb-6">
         <CardHeader><CardTitle>Masukkan Kode Akses Servis</CardTitle></CardHeader>
         <CardContent className="space-y-4">
@@ -212,10 +217,25 @@ export default function ServiceStatusPage() {
           </CardContent>
         </Card>
       )}
+    </>
+  );
+}
+
+export default function ServiceStatusPage() {
+  return (
+    <div className="container mx-auto p-4 md:p-6 lg:p-8 min-h-screen flex flex-col items-center">
+      <PageHeader title="Cek Status Servis Kendaraan Anda" description="Masukkan kode akses yang Anda terima untuk melihat progres pengerjaan."/>
+      <Suspense fallback={
+        <Card className="w-full max-w-lg shadow-xl text-center py-10">
+          <Hourglass className="h-12 w-12 text-primary animate-spin mx-auto mb-4" />
+          <p className="text-muted-foreground">Memuat detail servis...</p>
+        </Card>
+      }>
+        <ServiceStatusContent />
+      </Suspense>
       <footer className="mt-auto pt-8 text-center text-sm text-muted-foreground">
         BengkelKu App &copy; {new Date().getFullYear()}
       </footer>
     </div>
   );
 }
-
