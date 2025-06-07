@@ -323,13 +323,13 @@ export default function InventoryPage() {
                 <TableHeader className="sticky top-0 bg-card z-10">
                   <TableRow>
                     <TableHead className="w-[60px] px-1 py-1.5 text-xs">Status</TableHead>
-                    <TableHead className="min-w-[70px] px-1 py-1.5 text-xs">SKU</TableHead>
+                    <TableHead className="min-w-[70px] px-1 py-1.5 text-xs hidden sm:table-cell">SKU</TableHead>
                     <TableHead className="min-w-[120px] px-1 py-1.5 text-xs">Nama Item</TableHead>
-                    <TableHead className="min-w-[80px] px-1 py-1.5 text-xs">Kategori</TableHead>
+                    <TableHead className="min-w-[80px] px-1 py-1.5 text-xs hidden sm:table-cell">Kategori</TableHead>
                     <TableHead className="text-right min-w-[80px] px-1 py-1.5 text-xs">Hrg. Modal</TableHead>
                     <TableHead className="text-right min-w-[80px] px-1 py-1.5 text-xs">Hrg. Jual</TableHead>
-                    <TableHead className="text-right min-w-[80px] px-1 py-1.5 text-xs hidden sm:table-cell">Hrg. Partner</TableHead>
-                    <TableHead className="text-right min-w-[90px] px-1 py-1.5 text-xs hidden sm:table-cell">Hrg. Jual+Pasang</TableHead>
+                    <TableHead className="text-right min-w-[80px] px-1 py-1.5 text-xs">Hrg. Partner</TableHead>
+                    <TableHead className="text-right min-w-[90px] px-1 py-1.5 text-xs">Hrg. Jual+Pasang</TableHead>
                     <TableHead className="text-center min-w-[50px] px-1 py-1.5 text-xs">Stok</TableHead>
                     <TableHead className="text-center min-w-[50px] px-1 py-1.5 text-xs hidden sm:table-cell">Stok Min.</TableHead>
                     <TableHead className="text-center w-[80px] px-1 py-1.5 text-xs">Aksi</TableHead>
@@ -341,20 +341,20 @@ export default function InventoryPage() {
                       <TableCell className="px-1 py-1">
                         <Switch checked={product.isActive} onCheckedChange={() => handleToggleActive(product.id, product.isActive)} aria-label={product.isActive ? "Nonaktifkan" : "Aktifkan"}/>
                       </TableCell>
-                      <TableCell className="font-mono text-xs px-1 py-1 break-all">{product.sku}</TableCell>
+                      <TableCell className="font-mono text-xs px-1 py-1 break-all hidden sm:table-cell">{product.sku}</TableCell>
                       <TableCell className="font-medium px-1 py-1 break-words text-sm">
                         {product.name}
                         {!product.isActive && <Badge variant="outline" className="ml-1.5 text-xs">Nonaktif</Badge>}
                         {product.category !== 'Jasa' && product.isActive && product.stockQuantity === 0 && <Badge variant="destructive" className="ml-1.5 text-xs">Habis</Badge>}
                         {product.category !== 'Jasa' && product.isActive && product.stockQuantity > 0 && product.lowStockThreshold > 0 && product.stockQuantity <= product.lowStockThreshold && <Badge variant="outline" className="ml-1.5 text-xs border-yellow-500 text-yellow-700">Menipis</Badge>}
                       </TableCell>
-                      <TableCell className="px-1 py-1 text-sm">{product.category}</TableCell>
+                      <TableCell className="px-1 py-1 text-sm hidden sm:table-cell">{product.category}</TableCell>
                       <TableCell className="text-right px-1 py-1 text-sm">Rp {product.costPrice.toLocaleString()}</TableCell>
                       <TableCell className="text-right px-1 py-1 text-sm">Rp {product.sellingPrices.find(p => p.tierName === 'default')?.price.toLocaleString() || '-'}</TableCell>
-                      <TableCell className="text-right px-1 py-1 text-sm hidden sm:table-cell">
+                      <TableCell className="text-right px-1 py-1 text-sm">
                         {product.sellingPrices.find(p => p.tierName === 'partner')?.price?.toLocaleString() ? `Rp ${product.sellingPrices.find(p => p.tierName === 'partner')?.price.toLocaleString()}` : '-'}
                       </TableCell>
-                       <TableCell className="text-right px-1 py-1 text-sm hidden sm:table-cell">
+                       <TableCell className="text-right px-1 py-1 text-sm">
                         {product.category !== 'Jasa' && product.sellingPrices.find(p => p.tierName === 'servicePackage')?.price?.toLocaleString() ? `Rp ${product.sellingPrices.find(p => p.tierName === 'servicePackage')?.price.toLocaleString()}` : '-'}
                       </TableCell>
                       <TableCell className="text-center px-1 py-1 text-sm">{product.category === 'Jasa' ? '-' : product.stockQuantity}</TableCell>
@@ -430,5 +430,7 @@ export default function InventoryPage() {
   );
 }
 
+
+    
 
     
